@@ -1,0 +1,238 @@
+import { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { cn } from '@/lib/utils';
+import {
+  Sparkles,
+  LayoutDashboard,
+  ChevronLeft,
+  ChevronRight,
+  PlusCircle,
+  Settings,
+  HelpCircle,
+  Crown,
+  BookOpen,
+  Lightbulb,
+  FileText,
+  LogOut,
+  Loader2
+} from 'lucide-react';
+
+const navigation = [
+  {
+    name: 'Dashboard',
+    href: '/app',
+    icon: LayoutDashboard,
+  },
+  {
+    name: 'New Project',
+    href: '/app/new-project',
+    icon: PlusCircle,
+  },
+  {
+    name: 'Templates',
+    href: '/app/templates',
+    icon: FileText,
+    badge: 'New',
+  },
+];
+
+const resources = [
+  {
+    name: 'Deep Research',
+    href: '/app/research',
+    icon: BookOpen,
+    badge: 'New',
+  },
+  {
+    name: 'Starter Kits',
+    href: '/app/kits',
+    icon: Lightbulb,
+    badge: 'New',
+  },
+  {
+    name: 'Pro Features',
+    href: '/app/pro',
+    icon: Crown,
+    badge: 'New',
+  },
+];
+
+const support = [
+  {
+    name: 'Settings',
+    href: '/app/settings',
+    icon: Settings,
+  },
+  {
+    name: 'Support',
+    href: '/app/support',
+    icon: HelpCircle,
+  },
+];
+
+interface NavItemProps {
+  href: string;
+  icon: React.ElementType;
+  children: React.ReactNode;
+  badge?: string;
+  collapsed?: boolean;
+}
+
+function NavItem({ href, icon: Icon, children, badge, collapsed }: NavItemProps) {
+  const { pathname } = useLocation();
+  const isActive = pathname === href;
+
+  return (
+    <Link
+      to={href}
+      className={cn(
+        'group flex items-center gap-x-3 rounded-lg px-3 py-2 text-sm font-medium relative',
+        isActive
+          ? 'bg-blue-900/30 text-white'
+          : 'text-gray-300 hover:bg-blue-900/20 hover:text-white'
+      )}
+    >
+      <Icon
+        className={cn(
+          'h-5 w-5 shrink-0',
+          isActive ? 'text-white' : 'text-gray-400 group-hover:text-white'
+        )}
+      />
+      <span className={cn(
+        "flex-1 transition-all duration-200",
+        collapsed ? 'opacity-0 w-0' : 'opacity-100'
+      )}>{children}</span>
+      {badge && (
+        <span className={cn(
+          "absolute right-2 top-1 inline-flex items-center rounded-md bg-blue-900/30 px-2 py-1 text-xs font-medium text-blue-200 ring-1 ring-inset ring-blue-500/30 transition-all duration-200",
+          collapsed ? 'opacity-0 scale-0' : 'opacity-100 scale-100'
+        )}>
+          {badge}
+        </span>
+      )}
+    </Link>
+  );
+}
+
+export default function AppSidebar() {
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+
+  const handleSignOut = async () => {
+    try {
+      setIsSigningOut(true);
+      await signOut();
+      navigate('/', { replace: true });
+    } catch (error) {
+      console.error('Failed to sign out:', error);
+      setIsSigningOut(false);
+    }
+  };
+
+  return (
+    <div className={cn(
+      "flex h-full flex-col border-r border-blue-900/50 bg-[#0A1A2C] relative transition-all duration-300",
+      collapsed ? 'w-20' : 'w-72'
+    )}>
+      <div className="flex h-16 shrink-0 items-center gap-x-3 border-b border-blue-900/50 px-4 relative">
+        <div className="h-8 w-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+          <Sparkles className="h-5 w-5 text-blue-400" />
+        </div>
+        <span className={cn(
+          "text-lg font-semibold text-white transition-all duration-200",
+          collapsed ? 'opacity-0 w-0' : 'opacity-100'
+        )}>MarketingGuide AI</span>
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-blue-900/20 text-gray-400 hover:text-white transition-colors"
+        >
+          {collapsed ? (
+            <ChevronRight className="h-5 w-5" />
+          ) : (
+            <ChevronLeft className="h-5 w-5" />
+          )}
+        </button>
+      </div>
+      <nav className="flex-1 overflow-y-auto px-3 py-6 pb-24">
+        <div className="space-y-1">
+          {navigation.map((item) => (
+            <NavItem
+              key={item.name}
+              href={item.href}
+              icon={item.icon}
+              badge={item.badge}
+              collapsed={collapsed}
+            >
+              {item.name}
+            </NavItem>
+          ))}
+        </div>
+        <div className="mt-10">
+          <p className={cn(
+            "px-3 text-xs font-semibold uppercase tracking-wider text-gray-400 transition-all duration-200",
+            collapsed ? 'opacity-0' : 'opacity-100'
+          )}>
+            Resources
+          </p>
+          <div className="mt-2 space-y-1">
+            {resources.map((item) => (
+              <NavItem
+                key={item.name}
+                href={item.href}
+                icon={item.icon}
+                badge={item.badge}
+                collapsed={collapsed}
+              >
+                {item.name}
+              </NavItem>
+            ))}
+          </div>
+        </div>
+        <div className="mt-10">
+          <p className={cn(
+            "px-3 text-xs font-semibold uppercase tracking-wider text-gray-400 transition-all duration-200",
+            collapsed ? 'opacity-0' : 'opacity-100'
+          )}>
+            Support
+          </p>
+          <div className="mt-2 space-y-1">
+            {support.map((item) => (
+              <NavItem
+                key={item.name}
+                href={item.href}
+                icon={item.icon}
+                collapsed={collapsed}
+              >
+                {item.name}
+              </NavItem>
+            ))}
+          </div>
+        </div>
+      </nav>
+      <div className="absolute bottom-0 left-0 right-0 p-4 bg-[#0A1A2C] border-t border-blue-900/50">
+        <button
+          onClick={handleSignOut}
+          disabled={isSigningOut}
+          className={cn(
+            'w-full group flex items-center gap-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
+            'text-gray-300 hover:bg-blue-900/20 hover:text-white'
+          )}
+        >
+          {isSigningOut ? (
+            <Loader2 className="h-5 w-5 shrink-0 animate-spin text-gray-400" />
+          ) : (
+            <LogOut className="h-5 w-5 shrink-0 text-gray-400 group-hover:text-white" />
+          )}
+          <span className={cn(
+            "transition-all duration-200",
+            collapsed ? 'opacity-0 w-0' : 'opacity-100'
+          )}>Sign Out</span>
+        </button>
+      </div>
+    </div>
+  );
+}
