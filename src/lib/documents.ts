@@ -1,4 +1,4 @@
-import { FileText, Target, Users, BarChart3, DollarSign, ShoppingCart, Globe, Heart, Megaphone, Share2, MessageSquare, Mail } from 'lucide-react';
+import { FileText, Target, Users, BarChart3, DollarSign, ShoppingCart, Globe, Heart, Megaphone, Share2, MessageSquare, Mail, Laptop } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 export interface DocumentType {
@@ -166,5 +166,18 @@ export const DOCUMENT_TYPES: DocumentType[] = [
 4. Response Handling
 5. Follow-up Process
 6. Performance Tracking`
+  },
+  {
+    id: 'tech_stack',
+    name: 'Tech Stack Recommendations',
+    description: 'Recommended tools, software, and technology infrastructure',
+    icon: Laptop,
+    promptTemplate: `Create tech stack recommendations for a {business_type} business with goals to {goals} and challenges like {challenges}. Include:
+1. Core Business Systems
+2. Marketing Technology
+3. Customer Management
+4. Analytics & Reporting
+5. Productivity & Collaboration
+6. Implementation Roadmap`
   }
 ];

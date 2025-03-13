@@ -113,6 +113,40 @@ export async function getProject(id: string) {
     .single();
 
   if (error) throw error;
+  
+  // Check if all document types exist, add any missing ones
+  const existingDocTypes = project.documents.map((doc: Document) => doc.type);
+  const missingDocTypes = DOCUMENT_TYPES.filter(docType => !existingDocTypes.includes(docType.id));
+  
+  if (missingDocTypes.length > 0) {
+    console.log(`Adding ${missingDocTypes.length} missing document types to project ${id}`);
+    
+    // Create missing document types
+    const documentPromises = missingDocTypes.map(docType => {
+      const { sections, status } = generateDocumentContent(docType.id, project);
+      
+      return supabase
+        .from('documents')
+        .insert({
+          project_id: project.id,
+          type: docType.id,
+          version: 1,
+          content: { sections },
+          status
+        })
+        .select();
+    });
+    
+    const results = await Promise.all(documentPromises);
+    
+    // Add the new documents to the project data
+    results.forEach((result: any) => {
+      if (result.data && result.data.length > 0) {
+        project.documents.push(result.data[0]);
+      }
+    });
+  }
+
   return project;
 }
 

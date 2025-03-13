@@ -182,12 +182,52 @@ export const MOCK_CONTENT = {
         content: 'Targeted outbound campaigns leverage data-driven insights to identify and engage high-potential prospects. Personalized messaging addresses specific pain points and value propositions.'
       },
       {
-        title: 'Channel Optimization',
+        title: 'Channel Mix',
         content: 'Multi-channel outreach includes email, LinkedIn, and direct mail, with each channel optimized for maximum response rates. A/B testing refines messaging and timing.'
       },
       {
         title: 'Follow-up Process',
         content: 'Structured follow-up sequences maintain engagement while respecting prospect preferences. Clear qualification criteria guide progression through the sales pipeline.'
+      }
+    ]
+  },
+  tech_stack: {
+    sections: [
+      {
+        title: 'Platform Options',
+        content: 'Review of recommended platforms including SaaS solutions (e.g., Shopify, WordPress, HubSpot), custom development frameworks, and enterprise platforms based on business requirements, scalability needs, and technical expertise.'
+      },
+      {
+        title: 'Content Management & Organization',
+        content: 'Recommended tools for content creation and management including Notion for centralized planning, Google Workspace for collaboration, and industry-specific content management systems that support your workflow requirements.'
+      },
+      {
+        title: 'Marketing & Communication Tools',
+        content: 'Essential marketing technology including email platforms (e.g., Mailchimp, HubSpot, Klaviyo), social media management tools (e.g., Hootsuite, Buffer), and automation platforms tailored to your audience engagement strategy.'
+      },
+      {
+        title: 'Sales & CRM Solutions',
+        content: 'Customer relationship management options ranging from comprehensive platforms like Salesforce and HubSpot to specialized solutions like Pipedrive or Monday Sales CRM, configured to support your sales process and team structure.'
+      },
+      {
+        title: 'Analytics & Reporting Systems',
+        content: 'Data visualization and business intelligence tools such as Google Analytics, Tableau, or industry-specific alternatives that provide actionable insights into business performance, customer behavior, and marketing effectiveness.'
+      },
+      {
+        title: 'Productivity & Collaboration',
+        content: 'Recommended workflow management platforms (e.g., Asana, Monday.com, ClickUp), communication tools (e.g., Slack, Microsoft Teams), and document collaboration solutions to enhance team efficiency and project management.'
+      },
+      {
+        title: 'Financial & Payment Processing',
+        content: 'Secure payment gateways (e.g., Stripe, PayPal, Square), accounting software (e.g., QuickBooks, Xero), and financial management tools that integrate with your business operations and reporting needs.'
+      },
+      {
+        title: 'Integration & Automation Strategy',
+        content: 'Framework for connecting your technology ecosystem using integration platforms (e.g., Zapier, Make), APIs, and custom automation to eliminate data silos and streamline workflows across business functions.'
+      },
+      {
+        title: 'Implementation Roadmap',
+        content: 'Phased deployment strategy prioritizing high-impact solutions while building toward a fully integrated technology ecosystem, including training recommendations, data migration considerations, and change management best practices.'
       }
     ]
   }
