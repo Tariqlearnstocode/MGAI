@@ -9,11 +9,13 @@ import {
   ChevronLeft,
   ChevronRight,
   PlusCircle,
+  Search,
   Settings,
   HelpCircle,
   Crown,
   BookOpen,
   Lightbulb,
+  Briefcase,
   FileText,
   LogOut,
   Loader2
@@ -30,25 +32,25 @@ const navigation = [
     href: '/app/new-project',
     icon: PlusCircle,
   },
+];
+
+const resources = [
   {
     name: 'Templates',
     href: '/app/templates',
     icon: FileText,
     badge: 'New',
   },
-];
-
-const resources = [
   {
-    name: 'Deep Research',
-    href: '/app/research',
-    icon: BookOpen,
+    name: 'Hire a Pro',
+    href: '/app/hire-pro',
+    icon: Briefcase,
     badge: 'New',
   },
   {
-    name: 'Starter Kits',
-    href: '/app/kits',
-    icon: Lightbulb,
+    name: 'Guides',
+    href: '/app/resources',
+    icon: BookOpen,
     badge: 'New',
   },
   {
@@ -57,18 +59,30 @@ const resources = [
     icon: Crown,
     badge: 'New',
   },
+  {
+    name: 'Logo Generator',
+    href: '/app/logo-generator',
+    icon: Sparkles,
+    badge: 'Soon',
+  },
+  {
+    name: 'Competitor Research',
+    href: '/app/competitor-research',
+    icon: Search,
+    badge: 'Soon',
+  },
 ];
 
 const support = [
   {
-    name: 'Settings',
-    href: '/app/settings',
-    icon: Settings,
-  },
-  {
     name: 'Support',
     href: '/app/support',
     icon: HelpCircle,
+  },
+  {
+    name: 'Settings',
+    href: '/app/settings',
+    icon: Settings,
   },
 ];
 
@@ -83,21 +97,35 @@ interface NavItemProps {
 function NavItem({ href, icon: Icon, children, badge, collapsed }: NavItemProps) {
   const { pathname } = useLocation();
   const isActive = pathname === href;
+  const isComingSoon = badge === 'Soon';
+
+  const commonClasses = cn(
+    'group flex items-center gap-x-3 rounded-lg px-3 py-2 text-sm font-medium relative text-gray-300',
+    isComingSoon
+      ? 'opacity-50 cursor-not-allowed'
+      : isActive
+        ? 'bg-blue-900/30 text-white'
+        : 'hover:bg-blue-900/20 hover:text-white'
+  );
+
+  const Component = isComingSoon ? 'div' : Link;
+  const linkProps = isComingSoon ? {} : { to: href };
 
   return (
-    <Link
-      to={href}
+    <Component
+      {...linkProps}
       className={cn(
-        'group flex items-center gap-x-3 rounded-lg px-3 py-2 text-sm font-medium relative',
-        isActive
-          ? 'bg-blue-900/30 text-white'
-          : 'text-gray-300 hover:bg-blue-900/20 hover:text-white'
+        commonClasses
       )}
     >
       <Icon
         className={cn(
           'h-5 w-5 shrink-0',
-          isActive ? 'text-white' : 'text-gray-400 group-hover:text-white'
+          isComingSoon
+            ? 'text-gray-400'
+            : isActive
+              ? 'text-white'
+              : 'text-gray-200 group-hover:text-white'
         )}
       />
       <span className={cn(
@@ -106,13 +134,16 @@ function NavItem({ href, icon: Icon, children, badge, collapsed }: NavItemProps)
       )}>{children}</span>
       {badge && (
         <span className={cn(
-          "absolute right-2 top-1 inline-flex items-center rounded-md bg-blue-900/30 px-2 py-1 text-xs font-medium text-blue-200 ring-1 ring-inset ring-blue-500/30 transition-all duration-200",
+          "absolute right-2 top-1 inline-flex items-center rounded-md px-2 py-1 text-xs font-medium transition-all duration-200",
+          isComingSoon
+            ? 'bg-gray-600/30 text-gray-200 ring-1 ring-inset ring-gray-400/50'
+            : 'bg-blue-900/30 text-blue-200 ring-1 ring-inset ring-blue-500/30',
           collapsed ? 'opacity-0 scale-0' : 'opacity-100 scale-100'
         )}>
           {badge}
         </span>
       )}
-    </Link>
+    </Component>
   );
 }
 
@@ -173,10 +204,10 @@ export default function AppSidebar() {
         </div>
         <div className="mt-10">
           <p className={cn(
-            "px-3 text-xs font-semibold uppercase tracking-wider text-gray-400 transition-all duration-200",
+            "px-3 text-xs font-semibold uppercase tracking-wider text-gray-100 transition-all duration-200",
             collapsed ? 'opacity-0' : 'opacity-100'
           )}>
-            Resources
+            Guides & Resources
           </p>
           <div className="mt-2 space-y-1">
             {resources.map((item) => (
@@ -194,7 +225,7 @@ export default function AppSidebar() {
         </div>
         <div className="mt-10">
           <p className={cn(
-            "px-3 text-xs font-semibold uppercase tracking-wider text-gray-400 transition-all duration-200",
+            "px-3 text-xs font-semibold uppercase tracking-wider text-gray-100 transition-all duration-200",
             collapsed ? 'opacity-0' : 'opacity-100'
           )}>
             Support
@@ -219,13 +250,13 @@ export default function AppSidebar() {
           disabled={isSigningOut}
           className={cn(
             'w-full group flex items-center gap-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
-            'text-gray-300 hover:bg-blue-900/20 hover:text-white'
+            'text-gray-100 hover:bg-blue-900/20 hover:text-white'
           )}
         >
           {isSigningOut ? (
-            <Loader2 className="h-5 w-5 shrink-0 animate-spin text-gray-400" />
+            <Loader2 className="h-5 w-5 shrink-0 animate-spin text-gray-200" />
           ) : (
-            <LogOut className="h-5 w-5 shrink-0 text-gray-400 group-hover:text-white" />
+            <LogOut className="h-5 w-5 shrink-0 text-gray-200 group-hover:text-white" />
           )}
           <span className={cn(
             "transition-all duration-200",

@@ -4,6 +4,12 @@ import AuthPage from './pages/AuthPage';
 import AppLayout from './components/AppLayout';
 import Dashboard from './pages/Dashboard';
 import NewProject from './pages/NewProject';
+import ProfilePage from './pages/ProfilePage';
+import TemplatesPage from './pages/TemplatesPage';
+import ResourcesPage from './pages/ResourcesPage';
+import SettingsPage from './pages/SettingsPage';
+import HireProPage from './pages/HireProPage';
+import SupportPage from './pages/SupportPage';
 import ProjectDocuments from './pages/ProjectDocuments';
 
 function App() {
@@ -16,6 +22,12 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path="new-project" element={<NewProject />} />
           <Route path="projects/:id/documents" element={<ProjectDocuments />} />
+          <Route path="profile" element={<ProfilePage />} />
+          <Route path="templates" element={<TemplatesPage />} />
+          <Route path="resources" element={<ResourcesPage />} />
+          <Route path="hire-pro" element={<HireProPage />} />
+          <Route path="support" element={<SupportPage />} />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Routes>
     </Router>

@@ -16,6 +16,7 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [initialDocument, setInitialDocument] = useState<Document | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Subscribe to real-time updates
   const { document: liveDocument, error: subscriptionError } = useDocumentSubscription(documentId);
@@ -28,6 +29,8 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
         setInitialDocument(doc);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load document');
+      } finally {
+        setIsLoading(false);
       }
     }
     fetchDocument();
@@ -36,6 +39,24 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
   // Use live document if available, otherwise use initial document
   const activeDocument = liveDocument || initialDocument;
   const docType = DOCUMENT_TYPES.find(doc => doc.id === activeDocument?.type);
+
+  const handleRequiredInfoSubmit = async (answers: Record<string, string>) => {
+    if (!activeDocument) return;
+    
+    try {
+      await updateDocument(activeDocument.id, {
+        required_info: {
+          answers
+        }
+      });
+      
+      // Proceed with generation
+      handleRegenerate();
+    } catch (error) {
+      console.error('Failed to save required info:', error);
+      setError(error instanceof Error ? error.message : 'Failed to save required information');
+    }
+  };
 
   const handleRegenerate = async () => {
     if (!activeDocument) return;
@@ -157,6 +178,35 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="h-full flex flex-col animate-pulse">
+        <header className="bg-white shadow">
+          <div className="mx-auto px-4 py-4 sm:px-6 lg:px-8">
+            <div className="h-6 w-32 bg-gray-200 rounded mb-4" />
+            <div className="flex justify-between items-center">
+              <div className="h-8 w-48 bg-gray-200 rounded" />
+              <div className="flex gap-3">
+                <div className="h-9 w-24 bg-gray-200 rounded" />
+                <div className="h-9 w-24 bg-gray-200 rounded" />
+              </div>
+            </div>
+          </div>
+        </header>
+        <main className="flex-1 overflow-y-auto bg-white m-6 rounded-lg shadow min-h-0">
+          <div className="p-8 space-y-8">
+            <div className="h-8 w-3/4 bg-gray-200 rounded" />
+            <div className="space-y-4">
+              <div className="h-4 w-full bg-gray-200 rounded" />
+              <div className="h-4 w-5/6 bg-gray-200 rounded" />
+              <div className="h-4 w-4/6 bg-gray-200 rounded" />
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   if (!activeDocument || !docType) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -200,7 +250,8 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
                 variant="outline"
                 size="sm"
                 onClick={handleRegenerate}
-                disabled={activeDocument.status === 'pending' || isGenerating}
+                className={activeDocument.status === 'pending' ? 'hidden' : ''}
+                disabled={isGenerating}
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Regenerate
@@ -260,13 +311,95 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
                 </div>
               </div>
             ) : activeDocument.status === 'pending' ? (
-              <div className="text-center py-12 text-gray-500">
-                This document hasn't been generated yet.
-                {activeDocument.type === 'marketing_plan' ? (
-                  <p>Auto-generating your marketing plan...</p>
-                ) : (
-                  <p>Click "Generate" to create it.</p>
-                )}
+              <div className="text-center py-12">
+                {docType.requiredInfo ? (
+                  <div className="max-w-lg mx-auto mt-8">
+                    <form onSubmit={(e) => {
+                      e.preventDefault();
+                      const formData = new FormData(e.currentTarget);
+                      const answers = Object.fromEntries(formData.entries());
+                      handleRequiredInfoSubmit(answers);
+                    }} className="space-y-8">
+                      {docType.requiredInfo.questions.map((q) => (
+                        <div key={q.id} className="space-y-2">
+                          <label className="block text-lg font-medium text-gray-900">
+                            {q.question}
+                          </label>
+                          {q.type === 'multi-select' ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {q.options?.map((opt) => (
+                                <label
+                                  key={opt}
+                                  className="relative flex items-start py-3 px-4 border rounded-lg cursor-pointer hover:bg-blue-50 transition-colors"
+                                >
+                                  <div className="min-w-0 flex-1 text-sm">
+                                    <div className="font-medium text-gray-700">
+                                      {opt}
+                                    </div>
+                                  </div>
+                                  <div className="ml-3 flex items-center h-5">
+                                    <input
+                                      type="checkbox"
+                                      name={q.id}
+                                      value={opt}
+                                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                  </div>
+                                </label>
+                              ))}
+                            </div>
+                          ) : q.type === 'select' ? (
+                            <select
+                              name={q.id}
+                              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                            >
+                              <option value="">Select an option</option>
+                              {q.options?.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          ) : q.type === 'color' ? (
+                            <div className="flex gap-3 items-center mt-1">
+                              <input
+                                type="color"
+                                name={q.id}
+                                className="h-10 w-20 p-1 rounded border border-gray-300"
+                              />
+                              <input
+                                type="text"
+                                name={`${q.id}_hex`}
+                                className="flex-1 block w-full px-3 py-2 sm:text-sm border-gray-300 rounded-md"
+                                placeholder="#000000"
+                                pattern="^#[0-9A-Fa-f]{6}$"
+                              />
+                            </div>
+                          ) : (
+                            <input
+                              type="text"
+                              name={q.id}
+                              className="mt-1 block w-full h-16 px-6 text-lg border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-all duration-200"
+                              placeholder={q.placeholder}
+                            />
+                          )}
+                        </div>
+                      ))}
+                      <div className="flex gap-3">
+                        <Button type="submit" className="flex-1">
+                          <Wand2 className="h-4 w-4 mr-2" />
+                          Generate
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleRegenerate}
+                          className="flex-1"
+                        >
+                          Skip
+                        </Button>
+                      </div>
+                    </form>
+                  </div>
+                ) : null}
               </div>
             ) : (
               activeDocument.content.sections.map((section, index) => (

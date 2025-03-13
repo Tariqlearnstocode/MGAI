@@ -356,13 +356,13 @@ export default function NewProject() {
                   <span className="text-base font-medium text-gray-500">
                     Question {currentStep + 1} of {QUESTIONS.length}
                   </span>
-                  <span className="text-base font-medium text-indigo-600">
+                  <span className="text-base font-medium text-blue-600">
                     {Math.round(((currentStep + 1) / QUESTIONS.length) * 100)}%
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-3">
                   <div
-                    className="bg-indigo-600 h-3 rounded-full transition-all duration-300"
+                    className="bg-blue-600 h-3 rounded-full transition-all duration-300"
                     style={{
                       width: `${((currentStep + 1) / QUESTIONS.length) * 100}%`,
                     }}
@@ -402,6 +402,7 @@ export default function NewProject() {
                   <Button
                     onClick={handleNext}
                     disabled={!answers[currentQuestion.id]}
+                    className="bg-blue-600 hover:bg-blue-700"
                   >
                     {currentStep === QUESTIONS.length - 1 ? 'Generate Plan' : 'Next'}
                   </Button>
