@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, RefreshCw, Wand2, AlertCircle } from 'lucide-react';
+import { Download, RefreshCw, Wand2, AlertCircle, ChevronDown, FileText, File } from 'lucide-react';
 import { DOCUMENT_TYPES } from '@/lib/documents';
 import { MOCK_CONTENT } from '@/lib/mockContent';
 import { updateDocument, getDocument } from '@/lib/projects';
 import { useDocumentSubscription } from '@/lib/hooks/useDocumentSubscription';
+import { downloadDocument } from '@/lib/download';
 import type { Document, Project } from '@/lib/projects';
 
 interface SingleDocumentViewerProps {
@@ -15,6 +16,7 @@ interface SingleDocumentViewerProps {
 function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerProps) {
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const [initialDocument, setInitialDocument] = useState<Document | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -178,6 +180,14 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
     }
   };
 
+  const handleDownload = async (format: 'pdf' | 'docx') => {
+    if (!activeDocument?.content?.sections) return;
+    
+    const filename = `${projectName.toLowerCase().replace(/\s+/g, '-')}-${activeDocument.type}`;
+    await downloadDocument(activeDocument.content.sections, format, filename);
+    setShowDownloadMenu(false);
+  };
+
   if (isLoading) {
     return (
       <div className="h-full flex flex-col animate-pulse">
@@ -256,10 +266,43 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Regenerate
               </Button>
-              <Button size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Download
-              </Button>
+              <div className="relative">
+                <Button 
+                  size="sm"
+                  onClick={() => setShowDownloadMenu(!showDownloadMenu)}
+                  className="flex items-center"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                  <ChevronDown className="h-4 w-4 ml-2" />
+                </Button>
+                {showDownloadMenu && (
+                  <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+                    <div className="py-1" role="menu">
+                      <button
+                        onClick={() => handleDownload('pdf')}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        role="menuitem"
+                      >
+                        <div className="flex items-center">
+                          <FileText className="h-4 w-4 mr-2 text-red-500" />
+                          Download as PDF
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => handleDownload('docx')}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        role="menuitem"
+                      >
+                        <div className="flex items-center">
+                          <File className="h-4 w-4 mr-2 text-blue-500" />
+                          Download as Word
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

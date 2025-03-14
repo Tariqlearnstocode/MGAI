@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Loader2, ArrowLeft, Brain } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,7 +12,11 @@ export default function AuthPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading, signIn, signUp } = useAuth();
+
+  // Get the return URL from location state, default to /app
+  const from = (location.state as any)?.from?.pathname || '/app';
 
   if (loading) {
     return (
@@ -37,7 +41,7 @@ export default function AuthPage() {
       } else {
         await signUp(email, password, fullName);
       }
-      navigate('/app');
+      navigate(from, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
