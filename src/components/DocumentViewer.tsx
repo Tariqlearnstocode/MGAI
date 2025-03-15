@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Download, RefreshCw, Wand2, AlertCircle, ChevronDown, FileText, File } from 'lucide-react';
 import { DOCUMENT_TYPES } from '@/lib/documents';
-import { MOCK_CONTENT } from '@/lib/mockContent';
-import { updateDocument, getDocument } from '@/lib/projects';
+import { updateDocument, getDocument, getProjectBasicInfo } from '@/lib/projects';
 import { useDocumentSubscription } from '@/lib/hooks/useDocumentSubscription';
 import { downloadDocument } from '@/lib/download';
+import { generateDocumentWithAI, updateDocumentProgress } from '@/lib/openai';
 import type { Document, Project } from '@/lib/projects';
+import ReactMarkdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
 
 interface SingleDocumentViewerProps {
   documentId: string;
@@ -47,8 +49,9 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
     
     try {
       await updateDocument(activeDocument.id, {
-        required_info: {
-          answers
+        content: {
+          ...activeDocument.content,
+          required_info: { answers }
         }
       });
       
@@ -60,6 +63,29 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
     }
   };
 
+  const handleSkipRequiredInfo = async () => {
+    if (!activeDocument) return;
+    
+    try {
+      // Set an empty required_info with a skipped flag
+      await updateDocument(activeDocument.id, {
+        content: {
+          ...activeDocument.content,
+          required_info: { 
+            answers: {}, 
+            skipped: true 
+          }
+        }
+      });
+      
+      // Proceed with generation
+      handleRegenerate();
+    } catch (error) {
+      console.error('Failed to process skip action:', error);
+      setError(error instanceof Error ? error.message : 'Failed to generate document');
+    }
+  };
+
   const handleRegenerate = async () => {
     if (!activeDocument) return;
 
@@ -67,14 +93,37 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
       setError(null);
       setIsGenerating(true);
       
-      const mockContent = MOCK_CONTENT[activeDocument.type as keyof typeof MOCK_CONTENT];
-      if (!mockContent) throw new Error('Document type not supported');
+      // Get document type information
+      const docType = DOCUMENT_TYPES.find(dt => dt.id === activeDocument.type);
+      if (!docType) throw new Error('Document type not supported');
 
-      // Initialize progress
+      // Get the full project data
+      const project = await getProjectBasicInfo(activeDocument.project_id);
+      if (!project) throw new Error('Project not found');
+
+      // Initialize document with empty sections
+      const sectionTitles = docType.promptTemplate.match(/Include:([\s\S]*?)(?:$|\.)/)?.[1]
+        ?.split(/\n/)
+        ?.map(line => line.trim())
+        ?.filter(line => /^\d+\./.test(line))
+        ?.map(line => line.replace(/^\d+\.\s*/, '').trim()) || [];
+
+      const emptySections = sectionTitles.map(title => ({
+        title,
+        content: ''
+      }));
+
+      // Preserve the required_info if it exists
+      const preservedRequiredInfo = activeDocument.content.required_info;
+
+      // Set document status to generating with empty sections
       await updateDocument(activeDocument.id, {
         status: 'generating',
         version: activeDocument.version + 1,
-        content: { sections: mockContent.sections.map(s => ({ title: s.title, content: '' })) },
+        content: { 
+          sections: emptySections,
+          required_info: preservedRequiredInfo // Preserve any required info
+        },
         progress: {
           percent: 0,
           stage: 'Initializing...',
@@ -82,100 +131,67 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
         }
       });
 
-      await new Promise(resolve => setTimeout(resolve, 500));
+      console.log(`Starting generation for document type: ${activeDocument.type}`);
 
-      // Simulate research phase
-      await updateDocument(activeDocument.id, {
-        progress: {
-          percent: 15,
-          stage: 'Research Phase',
-          message: 'Analyzing industry data and trends'
-        }
+      // Research phase
+      await updateDocumentProgress(activeDocument.id, {
+        percent: 15,
+        stage: 'Research Phase',
+        message: 'Analyzing industry data and trends'
       });
 
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Simulate content planning
-      await updateDocument(activeDocument.id, {
-        progress: {
-          percent: 30,
-          stage: 'Content Planning',
-          message: 'Structuring document sections'
-        }
+      // Content planning phase
+      await updateDocumentProgress(activeDocument.id, {
+        percent: 25,
+        stage: 'Content Planning',
+        message: 'Structuring document sections'
       });
 
       await new Promise(resolve => setTimeout(resolve, 800));
 
-      const sections = mockContent.sections.map(section => ({
-        title: section.title,
-        content: ''
-      }));
+      try {
+        // Generate content with OpenAI
+        console.log(`Calling OpenAI to generate content for ${activeDocument.type}`);
+        const generatedContent = await generateDocumentWithAI(activeDocument, project);
+        console.log(`Successfully generated content for ${activeDocument.type}`);
 
-      let totalProgress = 35;
-      const progressPerSection = 55 / mockContent.sections.length;
-      
-      for (let i = 0; i < mockContent.sections.length; i++) {
-        const content = mockContent.sections[i].content;
-        const words = content.split(' ');
-        const progressPerWord = progressPerSection / words.length;
-        
-        for (let j = 0; j < words.length; j += 3) {
-          const partialContent = words.slice(0, j + 3).join(' ');
-          sections[i].content = partialContent + (j + 3 < words.length ? '|' : '');
-          
-          totalProgress += progressPerWord * 3;
-          await updateDocument(activeDocument.id, {
-            content: { sections },
-            progress: {
-              percent: Math.min(90, Math.round(totalProgress)),
-              stage: `Generating ${mockContent.sections[i].title}`,
-              message: 'Writing content...'
-            }
-          });
-
-          await new Promise(resolve => setTimeout(resolve, 50));
-        }
+        // Update document with completed content
+        await updateDocument(activeDocument.id, {
+          status: 'completed',
+          content: {
+            ...generatedContent,
+            required_info: preservedRequiredInfo // Keep the required_info
+          },
+          progress: {
+            percent: 100,
+            stage: 'Complete',
+            message: 'Document generation complete'
+          }
+        });
+      } catch (generationError) {
+        console.error('Error during content generation:', generationError);
+        throw new Error(`Content generation failed: ${generationError instanceof Error ? generationError.message : String(generationError)}`);
       }
 
-      // Final polish phase
-      await updateDocument(activeDocument.id, {
-        progress: {
-          percent: 95,
-          stage: 'Final Polish',
-          message: 'Reviewing and formatting'
-        }
-      });
-
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Complete
-      await updateDocument(activeDocument.id, {
-        status: 'completed',
-        content: { sections: mockContent.sections },
-        progress: {
-          percent: 100,
-          stage: 'Complete',
-          message: 'Document ready'
-        }
-      });
-      
+      setIsGenerating(false);
     } catch (error) {
-      console.error('Failed to regenerate document:', error);
-      setError(error instanceof Error ? error.message : 'An error occurred');
+      console.error('Error generating document:', error);
+      setError(error instanceof Error ? error.message : 'Failed to generate document');
       
-      try {
+      // Update document status to error
+      if (activeDocument) {
         await updateDocument(activeDocument.id, {
           status: 'error',
           progress: {
             percent: 0,
             stage: 'Error',
-            message: error instanceof Error ? error.message : 'An error occurred'
+            message: error instanceof Error ? error.message : 'An error occurred during generation'
           }
         });
-      } catch (updateError) {
-        console.error('Failed to update error status:', updateError);
       }
-    } finally {
+      
       setIsGenerating(false);
     }
   };
@@ -329,23 +345,15 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
             ) : isGenerating || activeDocument.status === 'generating' ? (
               <div className="text-center py-12">
                 <div className="max-w-md mx-auto">
-                  <div className="flex items-center justify-center mb-4">
-                    <div className="relative">
-                      <div className="h-24 w-24 rounded-full border-4 border-blue-100 flex items-center justify-center">
-                        <div className="absolute inset-0 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
-                        <span className="text-lg font-semibold text-blue-600">
-                          {activeDocument.progress?.percent || 0}%
-                        </span>
-                      </div>
-                    </div>
+                  <div className="mb-6">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                      {activeDocument.progress?.stage || 'Generating document...'}
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {activeDocument.progress?.message || 'Please wait while we process your request'}
+                    </p>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {activeDocument.progress?.stage || 'Generating document...'}
-                  </h3>
-                  <p className="text-sm text-gray-500">
-                    {activeDocument.progress?.message || 'Please wait while we process your request'}
-                  </p>
-                  <div className="mt-6 h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                     <div 
                       className="h-full bg-blue-500 rounded-full transition-all duration-300 ease-out"
                       style={{ width: `${activeDocument.progress?.percent || 0}%` }}
@@ -360,7 +368,11 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
                     <form onSubmit={(e) => {
                       e.preventDefault();
                       const formData = new FormData(e.currentTarget);
-                      const answers = Object.fromEntries(formData.entries());
+                      // Convert FormDataEntryValue to string explicitly
+                      const answers: Record<string, string> = {};
+                      formData.forEach((value, key) => {
+                        answers[key] = typeof value === 'string' ? value : '';
+                      });
                       handleRequiredInfoSubmit(answers);
                     }} className="space-y-8">
                       {docType.requiredInfo.questions.map((q) => (
@@ -429,17 +441,20 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
                       <div className="flex gap-3">
                         <Button type="submit" className="flex-1">
                           <Wand2 className="h-4 w-4 mr-2" />
-                          Generate
+                          Generate with Details
                         </Button>
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={handleRegenerate}
+                          onClick={handleSkipRequiredInfo}
                           className="flex-1"
                         >
-                          Skip
+                          Skip & Generate
                         </Button>
                       </div>
+                      <p className="text-sm text-gray-500 mt-3 text-center">
+                        If you skip, the AI will make assumptions based on your project information.
+                      </p>
                     </form>
                   </div>
                 ) : null}
@@ -447,16 +462,30 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
             ) : (
               activeDocument.content.sections.map((section, index) => (
                 <div key={index} className="mb-8">
-                  {index === 0 ? (
-                    <h1>{section.title}</h1>
-                  ) : (
-                    <h2>{section.title}</h2>
-                  )}
-                  <p className={index === 0 ? 'lead' : ''}>
-                    {section.content.endsWith('|') ? (
-                      section.content.slice(0, -1)
-                    ) : section.content}
-                  </p>
+                  <div className="markdown-content">
+                    <ReactMarkdown 
+                      rehypePlugins={[rehypeSanitize]}
+                      components={{
+                        h1: ({node, ...props}) => <h1 className="text-3xl font-bold mb-4" {...props} />,
+                        h2: ({node, ...props}) => <h2 className="text-2xl font-bold mb-3" {...props} />,
+                        p: ({ node, ...props }) => {
+                          // Safely check if first child starts with section title
+                          const firstChild = Array.isArray(props.children) && props.children.length > 0 
+                            ? props.children[0] 
+                            : props.children;
+                          
+                          const firstChildText = typeof firstChild === 'string' ? firstChild : '';
+                          const isFirstParagraph = index === 0 && firstChildText.startsWith(section.title);
+                          
+                          return <p className={isFirstParagraph ? 'lead' : ''} {...props} />;
+                        }
+                      }}
+                    >
+                      {section.content.endsWith('|') 
+                        ? section.content.slice(0, -1) 
+                        : section.content}
+                    </ReactMarkdown>
+                  </div>
                 </div>
               ))
             )}
@@ -470,10 +499,10 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
 interface DocumentViewerProps {
   project: Project & { documents: Document[] };
   selectedDoc: string;
-  onDocumentSelect: (docId: string) => void;
+  _onDocumentSelect?: (docId: string) => void;
 }
 
-export default function DocumentViewer({ project, selectedDoc, onDocumentSelect }: DocumentViewerProps) {
+export default function DocumentViewer({ project, selectedDoc }: DocumentViewerProps) {
   const currentDocument = project.documents.find(doc => doc.type === selectedDoc);
 
   if (!currentDocument) {

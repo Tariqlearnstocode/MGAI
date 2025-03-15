@@ -1,7 +1,6 @@
 import { supabase } from './supabase';
 import { User } from '@supabase/supabase-js';
 import { DOCUMENT_TYPES } from './documents';
-import { MOCK_CONTENT } from './mockContent';
 
 export interface Project {
   id: string;
@@ -28,6 +27,10 @@ export interface Document {
       title: string;
       content: string;
     }>;
+    required_info?: {
+      answers: Record<string, string>;
+      skipped?: boolean;
+    };
   };
   status: 'pending' | 'generating' | 'completed' | 'error';
   progress?: {
@@ -40,16 +43,7 @@ export interface Document {
 }
 
 function generateDocumentContent(docType: string, projectData: Omit<Project, 'id' | 'user_id' | 'created_at' | 'updated_at'>) {
-  // Only marketing plan is generated automatically
-  if (docType === 'marketing_plan') {
-    const mockContent = MOCK_CONTENT[docType as keyof typeof MOCK_CONTENT];
-    return {
-      sections: mockContent?.sections || [],
-      status: 'completed'
-    };
-  }
-  
-  // All other documents start as pending
+  // All documents start as pending and will be generated with OpenAI
   return {
     sections: [],
     status: 'pending'
@@ -102,6 +96,9 @@ export async function getProjects() {
   return projects;
 }
 
+/**
+ * Get a single project by ID
+ */
 export async function getProject(id: string) {
   const { data: project, error } = await supabase
     .from('projects')
@@ -147,6 +144,20 @@ export async function getProject(id: string) {
     });
   }
 
+  return project;
+}
+
+/**
+ * Get basic project data by ID without fetching associated documents
+ */
+export async function getProjectBasicInfo(projectId: string): Promise<Project> {
+  const { data: project, error } = await supabase
+    .from('projects')
+    .select('*')
+    .eq('id', projectId)
+    .single();
+
+  if (error) throw error;
   return project;
 }
 

@@ -1,12 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight, Loader2, ShoppingBag, Store, Laptop, Briefcase, Video, Sparkles, RefreshCw, Lightbulb, DollarSign, TrendingUp, Rocket, Building } from 'lucide-react';
-import { createProject, createDocument } from '@/lib/projects';
-import { MOCK_CONTENT } from '@/lib/mockContent';
+import { createProject } from '@/lib/projects';
 import { useAuth } from '@/contexts/AuthContext';
-import { DOCUMENT_TYPES } from '@/lib/documents';
-import type { DocumentContent } from './ProjectDocuments';
 
 const BUSINESS_TYPES = [
   {
@@ -85,16 +82,7 @@ const SUGGESTIONS = {
     "Sustainable fashion brand creating eco-friendly apparel",
     "Professional photography studio specializing in corporate events"
   ],
-  name: [
-    "TechFlow Solutions",
-    "Green Earth Organics",
-    "Peak Performance Fitness",
-    "Digital Growth Agency",
-    "Bright Spark Studios",
-    "Nova Learning Systems",
-    "EcoStyle Fashion",
-    "Pixel Perfect Media"
-  ],
+  name: [],
   target_audience: [
     "Small business owners looking to digitize operations",
     "Health-conscious urban professionals aged 25-45",
@@ -141,38 +129,59 @@ interface TextInputWithSuggestionsProps {
   setAnswers: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 }
 
-const TextInputWithSuggestions = ({ value, onChange, placeholder, suggestions, setAnswers }: TextInputWithSuggestionsProps) => (
-  <div className="space-y-4">
-    <input
-      type="text"
-      autoFocus
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      className="w-full h-16 rounded-xl border-2 border-gray-200 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 px-6 text-lg transition-all duration-200 placeholder:text-gray-400 caret-blue-500"
-    />
-    {suggestions && suggestions.length > 0 && (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-              <Lightbulb className="h-5 w-5" />
-              <span className="text-base">Suggestions</span>
+const TextInputWithSuggestions = ({ value, onChange, placeholder, suggestions, setAnswers }: TextInputWithSuggestionsProps) => {
+  // Add state to store the current suggestions
+  const [currentSuggestions, setCurrentSuggestions] = useState<string[]>([]);
+  
+  // Initialize suggestions on first render only
+  useEffect(() => {
+    if (suggestions && suggestions.length > 0) {
+      const randomized = [...suggestions].sort(() => Math.random() - 0.5).slice(0, 2);
+      setCurrentSuggestions(randomized);
+    }
+  }, [suggestions]); // Only depends on suggestions array reference
+  
+  // Function to refresh suggestions when the button is clicked
+  const refreshSuggestions = useCallback(() => {
+    if (suggestions && suggestions.length > 0) {
+      const randomized = [...suggestions].sort(() => Math.random() - 0.5).slice(0, 2);
+      setCurrentSuggestions(randomized);
+    }
+  }, [suggestions]);
+
+  return (
+    <div className="space-y-4">
+      <input
+        type="text"
+        autoFocus
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full h-16 rounded-xl border-2 border-gray-200 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 px-6 text-lg transition-all duration-200 placeholder:text-gray-400 caret-blue-500"
+      />
+      {suggestions && suggestions.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+                <Lightbulb className="h-5 w-5" />
+                <span className="text-base">Suggestions</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-3 text-sm hover:bg-blue-50 hover:text-blue-600"
+              onClick={() => {
+                refreshSuggestions();
+                // Keep this to ensure parent component is updated too
+                setAnswers(prev => ({ ...prev }));
+              }}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              More Suggestions
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 px-3 text-sm hover:bg-blue-50 hover:text-blue-600"
-            onClick={() => setAnswers(prev => ({ ...prev }))}
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            More Suggestions
-          </Button>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {[...suggestions]
-              .sort(() => Math.random() - 0.5)
-              .slice(0, 2)
-              .map((suggestion, index) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {currentSuggestions.map((suggestion, index) => (
               <button
                 key={index}
                 onClick={() => onChange(suggestion)}
@@ -184,11 +193,12 @@ const TextInputWithSuggestions = ({ value, onChange, placeholder, suggestions, s
                 </div>
               </button>
             ))}
+          </div>
         </div>
-      </div>
-    )}
-  </div>
-);
+      )}
+    </div>
+  );
+};
 
 const QUESTIONS = [
   {
@@ -220,32 +230,9 @@ const QUESTIONS = [
     )
   },
   {
-    id: 'description',
-    question: 'Describe your business in a few sentences.',
-    placeholder: 'e.g., We create innovative software solutions...',
-    component: ({ value, onChange, setAnswers }: { value: string; onChange: (value: string) => void; setAnswers: React.Dispatch<React.SetStateAction<Record<string, string>>> }) => (
-      <TextInputWithSuggestions
-        value={value}
-        onChange={onChange}
-        placeholder="e.g., We create innovative software solutions..."
-        setAnswers={setAnswers}
-        suggestions={SUGGESTIONS.description}
-      />
-    )
-  },
-  {
-    id: 'name',
-    question: 'What is your business name?',
-    placeholder: 'e.g., Acme Corporation, TechStart Solutions...',
-    component: ({ value, onChange, setAnswers }: { value: string; onChange: (value: string) => void; setAnswers: React.Dispatch<React.SetStateAction<Record<string, string>>> }) => (
-      <TextInputWithSuggestions
-        value={value}
-        onChange={onChange}
-        placeholder="e.g., Acme Corporation, TechStart Solutions..."
-        setAnswers={setAnswers}
-        suggestions={SUGGESTIONS.name}
-      />
-    )
+    id: 'name_and_description',
+    question: 'Tell us about your business',
+    // Component is now rendered directly in the NewProject component
   },
   {
     id: 'target_audience',
@@ -276,6 +263,20 @@ const QUESTIONS = [
     )
   },
   {
+    id: 'challenges',
+    question: 'What are your biggest marketing challenges?',
+    placeholder: 'e.g., Limited resources, High competition...',
+    component: ({ value, onChange, setAnswers }: { value: string; onChange: (value: string) => void; setAnswers: React.Dispatch<React.SetStateAction<Record<string, string>>> }) => (
+      <TextInputWithSuggestions
+        value={value}
+        onChange={onChange}
+        placeholder="e.g., Limited resources, High competition..."
+        setAnswers={setAnswers}
+        suggestions={SUGGESTIONS.challenges}
+      />
+    )
+  },
+  {
     id: 'budget',
     question: 'What is your monthly marketing budget?',
     component: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
@@ -302,20 +303,6 @@ const QUESTIONS = [
         })}
       </div>
     )
-  },
-  {
-    id: 'challenges',
-    question: 'What are your biggest marketing challenges?',
-    placeholder: 'e.g., Limited resources, High competition...',
-    component: ({ value, onChange, setAnswers }: { value: string; onChange: (value: string) => void; setAnswers: React.Dispatch<React.SetStateAction<Record<string, string>>> }) => (
-      <TextInputWithSuggestions
-        value={value}
-        onChange={onChange}
-        placeholder="e.g., Limited resources, High competition..."
-        setAnswers={setAnswers}
-        suggestions={SUGGESTIONS.challenges}
-      />
-    )
   }
 ];
 
@@ -327,6 +314,110 @@ export default function NewProject() {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const currentQuestion = QUESTIONS[currentStep];
+
+  // For the combined name and description step, we'll pass the entire answers object
+  const renderQuestionComponent = () => {
+    if (currentQuestion.id === 'name_and_description') {
+      return (
+        <div className="space-y-8">
+          <div>
+            <h3 className="text-xl font-semibold mb-4">What is your business name?</h3>
+            <input
+              type="text"
+              autoFocus
+              value={answers['name'] || ''}
+              onChange={(e) => setAnswers(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="e.g., Acme Corporation, TechStart Solutions..."
+              className="w-1/2 h-16 rounded-xl border-2 border-gray-200 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 px-6 text-lg transition-all duration-200 placeholder:text-gray-400 caret-blue-500"
+            />
+          </div>
+          
+          <div>
+            <h3 className="text-xl font-semibold mb-4">Describe your business in a few sentences</h3>
+            <textarea
+              value={answers['description'] || ''}
+              onChange={(e) => setAnswers(prev => ({ ...prev, description: e.target.value }))}
+              placeholder="e.g., We create innovative software solutions..."
+              className="w-full h-32 rounded-xl border-2 border-gray-200 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 px-6 py-4 text-lg transition-all duration-200 placeholder:text-gray-400 caret-blue-500"
+            />
+            {SUGGESTIONS.description.length > 0 && (
+              <div className="mt-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Lightbulb className="h-5 w-5" />
+                    <span className="text-base">Suggestions</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-3 text-sm hover:bg-blue-50 hover:text-blue-600"
+                    onClick={() => {
+                      // Randomize and display suggestions
+                      const randomized = [...SUGGESTIONS.description]
+                        .sort(() => Math.random() - 0.5)
+                        .slice(0, 2);
+                        
+                      // We'll just force a re-render since we don't need state for this
+                      setAnswers(prev => ({ ...prev }));
+                    }}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    More Suggestions
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {SUGGESTIONS.description.slice(0, 2).map((suggestion, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setAnswers(prev => ({ ...prev, description: suggestion }))}
+                      className="text-left px-4 py-3 rounded-lg border-2 border-transparent bg-blue-50 hover:bg-blue-100 hover:border-blue-200 text-blue-700 text-base transition-all duration-200 group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="line-clamp-2">{suggestion}</span>
+                        <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // For other questions, use the standard component rendering
+    if (currentQuestion.component) {
+      return (
+        <currentQuestion.component
+          value={answers[currentQuestion.id] || ''}
+          onChange={(value) =>
+            setAnswers(prev => ({
+              ...prev,
+              [currentQuestion.id]: value
+            }))
+          }
+          setAnswers={setAnswers}
+        />
+      );
+    }
+
+    // Fallback to textarea
+    return (
+      <textarea
+        value={answers[currentQuestion.id] || ''}
+        onChange={(e) =>
+          setAnswers(prev => ({
+            ...prev,
+            [currentQuestion.id]: e.target.value
+          }))
+        }
+        placeholder={currentQuestion.placeholder}
+        rows={4}
+        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+      />
+    );
+  };
 
   const handleNext = () => {
     if (currentStep < QUESTIONS.length - 1) {
@@ -361,6 +452,14 @@ export default function NewProject() {
       console.error('Failed to create project:', error);
       setIsGenerating(false);
     }
+  };
+
+  // Update the Next button validation for the combined name_and_description step
+  const isNextButtonDisabled = () => {
+    if (currentQuestion.id === 'name_and_description') {
+      return !answers['name'] || !answers['description'];
+    }
+    return !answers[currentQuestion.id];
   };
 
   return (
@@ -408,35 +507,11 @@ export default function NewProject() {
                 <h2 className="text-3xl font-semibold text-gray-900">
                   {currentQuestion.question}
                 </h2>
-                {currentQuestion.component ? (
-                  <currentQuestion.component
-                    value={answers[currentQuestion.id] || ''}
-                    onChange={(value) =>
-                      setAnswers(prev => ({
-                        ...prev,
-                        [currentQuestion.id]: value
-                      }))
-                    }
-                    setAnswers={setAnswers}
-                  />
-                ) : (
-                  <textarea
-                    value={answers[currentQuestion.id] || ''}
-                    onChange={(e) =>
-                      setAnswers(prev => ({
-                        ...prev,
-                        [currentQuestion.id]: e.target.value
-                      }))
-                    }
-                    placeholder={currentQuestion.placeholder}
-                    rows={4}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                  />
-                )}
+                {renderQuestionComponent()}
                 <div className="flex justify-end">
                   <Button
                     onClick={handleNext}
-                    disabled={!answers[currentQuestion.id]}
+                    disabled={isNextButtonDisabled()}
                     className="bg-blue-600 hover:bg-blue-700"
                   >
                     {currentStep === QUESTIONS.length - 1 ? 'Generate Plan' : 'Next'}
