@@ -1,5 +1,5 @@
-import { FileText, Target, Users, BarChart3, DollarSign, ShoppingCart, Globe, Heart, Megaphone, Share2, MessageSquare, Mail, Laptop } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { FileText, Target, Users, BarChart3, DollarSign, ShoppingCart, Globe, Heart, Megaphone, Share2, MessageSquare, Mail, Laptop,
+  Palette, Rocket, Calendar, AtSign } from 'lucide-react';
 
 export interface DocumentType {
   id: string;
@@ -40,12 +40,6 @@ export const DOCUMENT_TYPES: DocumentType[] = [
     icon: Target,
     requiredInfo: {
       questions: [
-        {
-          id: 'existing_logo',
-          question: 'Do you have an existing logo you want to use?',
-          type: 'text',
-          placeholder: 'If yes, please provide a URL to your logo image'
-        },
         {
           id: 'primary_color',
           question: 'What is your primary brand color?',
@@ -405,5 +399,133 @@ export const DOCUMENT_TYPES: DocumentType[] = [
 4. Analytics & Reporting
 5. Productivity & Collaboration
 6. Implementation Roadmap`
+  },
+  {
+    id: 'visual_identity',
+    name: 'Visual Identity System',
+    description: 'Complete visual design system including color palette, typography, and design elements',
+    icon: Palette,
+    requiredInfo: {
+      questions: [
+        {
+          id: 'brand_style',
+          question: 'What style best represents your brand?',
+          type: 'multi-select',
+          options: [
+            'Modern & Minimal',
+            'Bold & Dynamic',
+            'Classic & Traditional',
+            'Playful & Creative',
+            'Luxury & Elegant',
+            'Tech & Innovative',
+            'Organic & Natural',
+            'Corporate & Professional'
+          ]
+        }
+      ]
+    },
+    promptTemplate: `Create a visual identity system for a {business_type} business targeting {target_audience}. Include:
+1. Color System
+2. Typography Hierarchy
+3. Design Elements
+4. Image Style Guide
+5. Layout Guidelines
+6. Usage Examples`
+  },
+  {
+    id: 'growth_strategy',
+    name: 'Growth Strategy Plan',
+    description: 'Strategic roadmap for sustainable business growth and market expansion',
+    icon: Rocket,
+    requiredInfo: {
+      questions: [
+        {
+          id: 'growth_focus',
+          question: 'Select your primary growth objectives',
+          type: 'multi-select',
+          options: [
+            'Market Expansion',
+            'Product Development',
+            'Customer Acquisition',
+            'Revenue Increase',
+            'Brand Recognition',
+            'Channel Development',
+            'Partnership Growth',
+            'International Expansion'
+          ]
+        }
+      ]
+    },
+    promptTemplate: `Develop a growth strategy for a {business_type} business with goals to {goals}. Include:
+1. Market Opportunity Analysis
+2. Growth Channels
+3. Resource Requirements
+4. Timeline & Milestones
+5. Risk Assessment
+6. Success Metrics`
+  },
+  {
+    id: 'content_calendar',
+    name: 'Content Calendar',
+    description: 'Strategic content planning and publishing schedule',
+    icon: Calendar,
+    requiredInfo: {
+      questions: [
+        {
+          id: 'content_platforms',
+          question: 'Select your content distribution channels',
+          type: 'multi-select',
+          options: [
+            'Blog/Website',
+            'Instagram',
+            'LinkedIn',
+            'Twitter/X',
+            'YouTube',
+            'TikTok',
+            'Email Newsletter',
+            'Podcast'
+          ]
+        }
+      ]
+    },
+    promptTemplate: `Create a content calendar for a {business_type} business targeting {target_audience}. Include:
+1. Content Themes
+2. Publishing Schedule
+3. Content Types
+4. Platform Strategy
+5. Engagement Goals
+6. Performance Metrics`
+  },
+  {
+    id: 'social_bios',
+    name: 'Social Media Bios',
+    description: 'Professional and engaging social media profile descriptions',
+    icon: AtSign,
+    requiredInfo: {
+      questions: [
+        {
+          id: 'social_platforms',
+          question: 'Select platforms for bio optimization',
+          type: 'multi-select',
+          options: [
+            'Instagram',
+            'LinkedIn',
+            'Twitter/X',
+            'Facebook',
+            'TikTok',
+            'YouTube',
+            'Pinterest',
+            'Medium'
+          ]
+        }
+      ]
+    },
+    promptTemplate: `Create social media bios for a {business_type} business targeting {target_audience}. Include:
+1. Platform-Specific Bios
+2. Key Value Propositions
+3. Call-to-Actions
+4. Keywords & Hashtags
+5. Link Strategies
+6. Bio Variations`
   }
 ];

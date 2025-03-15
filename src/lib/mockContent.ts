@@ -230,5 +230,41 @@ export const MOCK_CONTENT = {
         content: 'Phased deployment strategy prioritizing high-impact solutions while building toward a fully integrated technology ecosystem, including training recommendations, data migration considerations, and change management best practices.'
       }
     ]
+  },
+  content_calendar: {
+    sections: [
+      {
+        title: 'Content Strategy Overview',
+        content: 'Our content calendar is designed to maintain consistent engagement while maximizing reach and impact across all channels. Each piece of content is strategically planned to support business goals and resonate with target audiences.'
+      },
+      {
+        title: 'Monthly Themes',
+        content: 'Week 1: Industry Insights & Trends\nWeek 2: Product Features & Benefits\nWeek 3: Customer Success Stories\nWeek 4: Behind-the-Scenes & Company Culture'
+      },
+      {
+        title: 'Content Distribution',
+        content: 'Monday: Blog posts & LinkedIn articles\nTuesday: Instagram content & stories\nWednesday: Video content\nThursday: Newsletter & educational content\nFriday: Community engagement & UGC'
+      },
+      {
+        title: 'Engagement Strategy',
+        content: 'Morning posts: Industry news & professional content\nAfternoon: Educational & value-add content\nEvening: Entertainment & community engagement\nWeekends: User-generated content & light engagement'
+      }
+    ]
+  },
+  social_bios: {
+    sections: [
+      {
+        title: 'Brand Voice Overview',
+        content: 'Our social media bios maintain a consistent yet platform-optimized voice that reflects our brand personality while engaging each platform\'s unique audience.'
+      },
+      {
+        title: 'Platform-Specific Bios',
+        content: 'Instagram: 🚀 Transforming businesses through strategic marketing\n💡 Expert tips & industry insights\n📈 Growth strategies that work\n🔗 Latest resources in bio\n\nLinkedIn: Empowering businesses with data-driven marketing strategies | Industry-leading solutions for sustainable growth | Trusted by 500+ companies\n\nTwitter: Sharing daily marketing insights and growth strategies | Helping businesses scale | DM for collaboration'
+      },
+      {
+        title: 'Keywords & Hashtags',
+        content: 'Primary Keywords: Digital Marketing, Business Growth, Marketing Strategy\nBranded Hashtags: #MarketingSuccess #GrowthStrategy\nIndustry Hashtags: #DigitalMarketing #MarketingTips'
+      }
+    ]
   }
 };

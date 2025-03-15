@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Loader2, ShoppingBag, Store, Laptop, Briefcase, Video, Sparkles, RefreshCw, Lightbulb, DollarSign, TrendingUp, Rocket, Building } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, ShoppingBag, Store, Laptop, Briefcase, Video, Sparkles, RefreshCw, Lightbulb, DollarSign, TrendingUp, Rocket, Building } from 'lucide-react';
 import { createProject, createDocument } from '@/lib/projects';
 import { MOCK_CONTENT } from '@/lib/mockContent';
 import { useAuth } from '@/contexts/AuthContext';
@@ -77,27 +77,43 @@ const BUDGET_OPTIONS = [
 const SUGGESTIONS = {
   description: [
     "We create innovative software solutions for modern businesses",
-    "A boutique fitness studio focused on personalized training",
+    "A boutique fitness studio focused on personalized training and wellness",
     "Handcrafted organic skincare products for conscious consumers",
-    "Digital marketing agency helping businesses grow online"
+    "Digital marketing agency helping businesses grow online",
+    "Premium coffee roastery serving specialty grade beans",
+    "Educational technology platform for online learning",
+    "Sustainable fashion brand creating eco-friendly apparel",
+    "Professional photography studio specializing in corporate events"
   ],
   name: [
     "TechFlow Solutions",
     "Green Earth Organics",
     "Peak Performance Fitness",
-    "Digital Growth Agency"
+    "Digital Growth Agency",
+    "Bright Spark Studios",
+    "Nova Learning Systems",
+    "EcoStyle Fashion",
+    "Pixel Perfect Media"
   ],
   target_audience: [
     "Small business owners looking to digitize operations",
     "Health-conscious urban professionals aged 25-45",
     "Tech startups in the growth phase",
-    "Local retailers seeking online presence"
+    "Local retailers seeking online presence",
+    "Corporate executives and business leaders",
+    "Educational institutions and teachers",
+    "Environmentally conscious millennials",
+    "Creative professionals and agencies"
   ],
   goals: [
     "Increase online sales by 50% within 6 months",
     "Build brand awareness in local community",
     "Generate qualified B2B leads",
-    "Launch successful digital marketing campaign"
+    "Launch successful digital marketing campaign",
+    "Expand into three new market segments",
+    "Establish thought leadership in the industry",
+    "Develop a loyal customer community",
+    "Create a sustainable growth strategy"
   ],
   budget: [
     "$1,000 - $3,000 per month",
@@ -109,7 +125,11 @@ const SUGGESTIONS = {
     "Limited marketing budget and resources",
     "High competition in digital space",
     "Building trust with potential customers",
-    "Converting website visitors to paying customers"
+    "Converting website visitors to paying customers",
+    "Finding and retaining skilled talent",
+    "Keeping up with rapid industry changes",
+    "Managing customer expectations",
+    "Scaling operations efficiently"
   ]
 };
 
@@ -118,9 +138,10 @@ interface TextInputWithSuggestionsProps {
   onChange: (value: string) => void;
   placeholder: string;
   suggestions?: string[];
+  setAnswers: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 }
 
-const TextInputWithSuggestions = ({ value, onChange, placeholder, suggestions }: TextInputWithSuggestionsProps) => (
+const TextInputWithSuggestions = ({ value, onChange, placeholder, suggestions, setAnswers }: TextInputWithSuggestionsProps) => (
   <div className="space-y-4">
     <input
       type="text"
@@ -131,30 +152,38 @@ const TextInputWithSuggestions = ({ value, onChange, placeholder, suggestions }:
       className="w-full h-16 rounded-xl border-2 border-gray-200 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 px-6 text-lg transition-all duration-200 placeholder:text-gray-400 caret-blue-500"
     />
     {suggestions && suggestions.length > 0 && (
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <Lightbulb className="h-5 w-5" />
-          <span className="text-base">Suggestions</span>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+              <Lightbulb className="h-5 w-5" />
+              <span className="text-base">Suggestions</span>
+          </div>
           <Button
             variant="ghost"
             size="sm"
-            className="ml-auto h-8 px-3 text-sm"
-            onClick={() => onChange(suggestions[Math.floor(Math.random() * suggestions.length)])}
+            className="h-8 px-3 text-sm hover:bg-blue-50 hover:text-blue-600"
+            onClick={() => setAnswers(prev => ({ ...prev }))}
           >
             <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
+            More Suggestions
           </Button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          {suggestions.map((suggestion, index) => (
-            <button
-              key={index}
-              onClick={() => onChange(suggestion)}
-              className="text-left px-4 py-3 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-base transition-colors"
-            >
-              {suggestion}
-            </button>
-          ))}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {[...suggestions]
+              .sort(() => Math.random() - 0.5)
+              .slice(0, 2)
+              .map((suggestion, index) => (
+              <button
+                key={index}
+                onClick={() => onChange(suggestion)}
+                className="text-left px-4 py-3 rounded-lg border-2 border-transparent bg-blue-50 hover:bg-blue-100 hover:border-blue-200 text-blue-700 text-base transition-all duration-200 group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="line-clamp-2">{suggestion}</span>
+                  <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                </div>
+              </button>
+            ))}
         </div>
       </div>
     )}
@@ -194,11 +223,12 @@ const QUESTIONS = [
     id: 'description',
     question: 'Describe your business in a few sentences.',
     placeholder: 'e.g., We create innovative software solutions...',
-    component: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
+    component: ({ value, onChange, setAnswers }: { value: string; onChange: (value: string) => void; setAnswers: React.Dispatch<React.SetStateAction<Record<string, string>>> }) => (
       <TextInputWithSuggestions
         value={value}
         onChange={onChange}
         placeholder="e.g., We create innovative software solutions..."
+        setAnswers={setAnswers}
         suggestions={SUGGESTIONS.description}
       />
     )
@@ -207,11 +237,12 @@ const QUESTIONS = [
     id: 'name',
     question: 'What is your business name?',
     placeholder: 'e.g., Acme Corporation, TechStart Solutions...',
-    component: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
+    component: ({ value, onChange, setAnswers }: { value: string; onChange: (value: string) => void; setAnswers: React.Dispatch<React.SetStateAction<Record<string, string>>> }) => (
       <TextInputWithSuggestions
         value={value}
         onChange={onChange}
         placeholder="e.g., Acme Corporation, TechStart Solutions..."
+        setAnswers={setAnswers}
         suggestions={SUGGESTIONS.name}
       />
     )
@@ -220,11 +251,12 @@ const QUESTIONS = [
     id: 'target_audience',
     question: 'Who is your target audience?',
     placeholder: 'e.g., Small business owners, Young professionals...',
-    component: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
+    component: ({ value, onChange, setAnswers }: { value: string; onChange: (value: string) => void; setAnswers: React.Dispatch<React.SetStateAction<Record<string, string>>> }) => (
       <TextInputWithSuggestions
         value={value}
         onChange={onChange}
         placeholder="e.g., Small business owners, Young professionals..."
+        setAnswers={setAnswers}
         suggestions={SUGGESTIONS.target_audience}
       />
     )
@@ -233,11 +265,12 @@ const QUESTIONS = [
     id: 'goals',
     question: 'What are your primary marketing goals?',
     placeholder: 'e.g., Increase brand awareness, Generate leads...',
-    component: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
+    component: ({ value, onChange, setAnswers }: { value: string; onChange: (value: string) => void; setAnswers: React.Dispatch<React.SetStateAction<Record<string, string>>> }) => (
       <TextInputWithSuggestions
         value={value}
         onChange={onChange}
         placeholder="e.g., Increase brand awareness, Generate leads..."
+        setAnswers={setAnswers}
         suggestions={SUGGESTIONS.goals}
       />
     )
@@ -274,11 +307,12 @@ const QUESTIONS = [
     id: 'challenges',
     question: 'What are your biggest marketing challenges?',
     placeholder: 'e.g., Limited resources, High competition...',
-    component: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
+    component: ({ value, onChange, setAnswers }: { value: string; onChange: (value: string) => void; setAnswers: React.Dispatch<React.SetStateAction<Record<string, string>>> }) => (
       <TextInputWithSuggestions
         value={value}
         onChange={onChange}
         placeholder="e.g., Limited resources, High competition..."
+        setAnswers={setAnswers}
         suggestions={SUGGESTIONS.challenges}
       />
     )
@@ -383,6 +417,7 @@ export default function NewProject() {
                         [currentQuestion.id]: value
                       }))
                     }
+                    setAnswers={setAnswers}
                   />
                 ) : (
                   <textarea
