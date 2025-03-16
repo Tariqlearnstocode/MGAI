@@ -41,20 +41,52 @@ function stripMarkdown(markdown: string): string {
     .replace(/`{1,3}(.*?)`{1,3}/g, '$1'); // Remove code blocks
 }
 
+// Process a section to remove its own title from the content if it appears at the beginning
+function processSection(section: DocumentSection): DocumentSection {
+  const { title, content } = section;
+  
+  // Common patterns for section title in content
+  const patterns = [
+    new RegExp(`^#\\s*${title}\\s*\\n`, 'i'),   // # Title
+    new RegExp(`^##\\s*${title}\\s*\\n`, 'i'),  // ## Title
+    new RegExp(`^${title}\\s*\\n={3,}\\n`, 'i') // Title
+                                                // ====
+  ];
+  
+  let processedContent = content;
+  
+  // Check if any of the patterns match at the beginning of the content
+  for (const pattern of patterns) {
+    if (pattern.test(processedContent)) {
+      // Remove the title from the content as we'll add it separately
+      processedContent = processedContent.replace(pattern, '');
+      break;
+    }
+  }
+  
+  return {
+    title,
+    content: processedContent
+  };
+}
+
 function createPDF(sections: DocumentSection[]): jsPDF {
   const doc = new jsPDF();
   let yOffset = 20;
   const pageWidth = doc.internal.pageSize.getWidth();
   
   sections.forEach((section, index) => {
+    // Process section to avoid duplicate titles
+    const processedSection = processSection(section);
+    
     // Add title
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
-    doc.text(section.title, 20, yOffset);
+    doc.text(processedSection.title, 20, yOffset);
     yOffset += 10;
 
     // Process content to handle markdown
-    const plainTextContent = stripMarkdown(section.content);
+    const plainTextContent = stripMarkdown(processedSection.content);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(12);
     const splitText = doc.splitTextToSize(plainTextContent, pageWidth - 40);
@@ -79,47 +111,59 @@ function createPDF(sections: DocumentSection[]): jsPDF {
 }
 
 function createDOCX(sections: DocumentSection[]): Document {
-  // Simple markdown formatting detection for DOCX
-  const processParagraph = (text: string) => {
-    // Check for basic formatting
-    const isBold = text.includes('**');
-    const isItalic = text.includes('*') && !isBold;
-    
-    if (isBold || isItalic) {
-      // For simplicity, just apply the style to the whole paragraph
+  // Function to split content into paragraphs and handle markdown
+  const processParagraphs = (content: string) => {
+    // Split content by double newlines to identify paragraphs
+    return content.split(/\n\n+/).filter(Boolean).map(paragraph => {
+      // Check for basic formatting
+      const isBold = paragraph.includes('**');
+      const isItalic = paragraph.includes('*') && !isBold;
+      // Check for bullet points
+      const isBulletPoint = paragraph.trim().startsWith('- ') || paragraph.trim().startsWith('• ');
+      
+      const cleanText = stripMarkdown(paragraph);
+      
       return new Paragraph({
         children: [
           new TextRun({
-            text: stripMarkdown(text),
+            text: cleanText,
             bold: isBold,
             italics: isItalic
           })
         ],
+        bullet: isBulletPoint ? { level: 0 } : undefined,
         spacing: { after: 200 }
       });
-    }
-    
-    return new Paragraph({
-      text: stripMarkdown(text),
-      spacing: { after: 200 }
     });
   };
   
+  // Build the document with sections
+  const docChildren = sections.flatMap(section => {
+    // Process section to avoid duplicate titles
+    const processedSection = processSection(section);
+    
+    // Create a heading for the section
+    const sectionTitle = new Paragraph({
+      text: processedSection.title,
+      heading: HeadingLevel.HEADING_1,
+      spacing: {
+        before: 400,
+        after: 200
+      }
+    });
+    
+    // Process the content into paragraphs
+    const contentParagraphs = processParagraphs(processedSection.content);
+    
+    // Return the section title followed by its content paragraphs
+    return [sectionTitle, ...contentParagraphs];
+  });
+  
+  // Create the document
   const doc = new Document({
     sections: [{
       properties: {},
-      children: sections.flatMap(section => [
-        new Paragraph({
-          text: section.title,
-          heading: HeadingLevel.HEADING_1,
-          spacing: {
-            before: 400,
-            after: 200
-          }
-        }),
-        // Split content into paragraphs and process each
-        ...section.content.split('\n\n').map(processParagraph)
-      ])
+      children: docChildren
     }]
   });
 
@@ -132,6 +176,50 @@ export async function downloadDocument(
   filename: string = 'document'
 ): Promise<void> {
   try {
+    // First check if sections exist and are properly formatted
+    if (!sections || !Array.isArray(sections) || sections.length === 0) {
+      throw new Error('Document has no content sections');
+    }
+    
+    // Check if we have a single-section document with a combined title
+    if (sections.length === 1 && sections[0].title.includes(',')) {
+      console.log('Detected combined sections in a single-section document, splitting...');
+      // This might be a case where all sections were combined into one
+      const originalSection = sections[0];
+      
+      // Only process if the content is substantial
+      if (originalSection.content.length > 100) {
+        // Look for markdown headings in the content
+        const headingMatches = [...originalSection.content.matchAll(/#{1,2}\s+([^\n]+)/g)];
+        
+        if (headingMatches.length > 0) {
+          console.log(`Found ${headingMatches.length} headings in content, creating separate sections`);
+          
+          // Split the content by headings
+          const newSections: DocumentSection[] = [];
+          
+          for (let i = 0; i < headingMatches.length; i++) {
+            const currentMatch = headingMatches[i];
+            const nextMatch = headingMatches[i + 1];
+            
+            const title = currentMatch[1].trim();
+            const startIndex = currentMatch.index;
+            const endIndex = nextMatch ? nextMatch.index : originalSection.content.length;
+            
+            const content = originalSection.content.substring(startIndex, endIndex);
+            
+            newSections.push({ title, content });
+          }
+          
+          // Use the new sections if we successfully split them
+          if (newSections.length > 0) {
+            sections = newSections;
+          }
+        }
+      }
+    }
+    
+    // Generate the document in the requested format
     if (format === 'pdf') {
       const doc = createPDF(sections);
       doc.save(`${filename}.pdf`);
