@@ -181,8 +181,79 @@ export async function downloadDocument(
       throw new Error('Document has no content sections');
     }
     
-    // Check if we have a single-section document with a combined title
-    if (sections.length === 1 && sections[0].title.includes(',')) {
+    // Extract document type from the filename to determine better document title
+    let documentTitle = 'Document';
+    const typeMatch = filename.match(/-([^-]+)$/);
+    if (typeMatch && typeMatch[1]) {
+      // Convert snake_case or kebab-case to Title Case
+      documentTitle = typeMatch[1]
+        .replace(/_|-/g, ' ')
+        .replace(/\b\w/g, c => c.toUpperCase());
+    }
+    
+    // Check if we're dealing with a single "Complete Document" section
+    if (sections.length === 1 && sections[0].title === "Complete Document") {
+      console.log('Detected "Complete Document" section, attempting to extract and restructure content...');
+      const content = sections[0].content;
+      
+      // Try to extract a main title from the beginning of the content
+      let mainTitle = documentTitle;
+      const titleMatch = content.match(/^#\s+([^\n]+)/);
+      if (titleMatch && titleMatch[1]) {
+        mainTitle = titleMatch[1].trim();
+        console.log(`Extracted document title: "${mainTitle}"`);
+      }
+      
+      // Look for markdown headings to split into separate sections
+      const headingMatches = [...content.matchAll(/^(#{1,3})\s+([^\n]+)/gm)];
+      
+      if (headingMatches.length > 0) {
+        console.log(`Found ${headingMatches.length} headings in content, splitting into sections`);
+        
+        // Split the content into sections
+        const newSections: DocumentSection[] = [];
+        
+        // First, add a cover/title section if there's a main title
+        if (mainTitle !== documentTitle) {
+          newSections.push({
+            title: "Title Page",
+            content: `# ${mainTitle}\n\n${documentTitle}`
+          });
+        }
+        
+        // Process each heading as a section
+        for (let i = 0; i < headingMatches.length; i++) {
+          const currentMatch = headingMatches[i];
+          const nextMatch = headingMatches[i + 1];
+          
+          // Skip the first heading if it's the main title we already used
+          if (i === 0 && currentMatch[2].trim() === mainTitle) {
+            continue;
+          }
+          
+          const title = currentMatch[2].trim();
+          const startIndex = currentMatch.index;
+          const endIndex = nextMatch ? nextMatch.index : content.length;
+          
+          // Extract this section's content
+          const sectionContent = content.substring(startIndex, endIndex);
+          
+          newSections.push({ title, content: sectionContent });
+        }
+        
+        // Only replace sections if we found any meaningful sections
+        if (newSections.length > 0) {
+          sections = newSections;
+          console.log(`Restructured document into ${sections.length} sections`);
+        }
+      } else {
+        // If no headings found, try to create a better title than "Complete Document"
+        sections[0].title = mainTitle;
+      }
+    }
+    
+    // Check if we have a single-section document with a combined title that contains commas
+    else if (sections.length === 1 && sections[0].title.includes(',')) {
       console.log('Detected combined sections in a single-section document, splitting...');
       // This might be a case where all sections were combined into one
       const originalSection = sections[0];
