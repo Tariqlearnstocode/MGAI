@@ -312,6 +312,23 @@ export default function NewProject() {
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [isGenerating, setIsGenerating] = useState(false);
+  const [descriptionSuggestions, setDescriptionSuggestions] = useState<string[]>([]);
+
+  // Initialize description suggestions
+  useEffect(() => {
+    const randomSuggestions = [...SUGGESTIONS.description]
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 2);
+    setDescriptionSuggestions(randomSuggestions);
+  }, []);
+
+  // Function to refresh description suggestions
+  const refreshDescriptionSuggestions = useCallback(() => {
+    const randomSuggestions = [...SUGGESTIONS.description]
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 2);
+    setDescriptionSuggestions(randomSuggestions);
+  }, []);
 
   const currentQuestion = QUESTIONS[currentStep];
 
@@ -351,32 +368,26 @@ export default function NewProject() {
                     variant="ghost"
                     size="sm"
                     className="h-8 px-3 text-sm hover:bg-blue-50 hover:text-blue-600"
-                    onClick={() => {
-                      // We'll just force a re-render to get new random suggestions
-                      setAnswers(prev => ({ ...prev }));
-                    }}
+                    onClick={refreshDescriptionSuggestions}
                   >
                     <RefreshCw className="h-4 w-4 mr-2" />
                     More Suggestions
                   </Button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {/* Get 2 random suggestions each time */}
-                  {[...SUGGESTIONS.description]
-                    .sort(() => Math.random() - 0.5)
-                    .slice(0, 2)
-                    .map((suggestion, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setAnswers(prev => ({ ...prev, description: suggestion }))}
-                        className="text-left px-4 py-3 rounded-lg border-2 border-transparent bg-blue-50 hover:bg-blue-100 hover:border-blue-200 text-blue-700 text-base transition-all duration-200 group"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="line-clamp-2">{suggestion}</span>
-                          <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-                        </div>
-                      </button>
-                    ))}
+                  {/* Use the saved suggestions instead of generating new ones on every render */}
+                  {descriptionSuggestions.map((suggestion, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setAnswers(prev => ({ ...prev, description: suggestion }))}
+                      className="text-left px-4 py-3 rounded-lg border-2 border-transparent bg-blue-50 hover:bg-blue-100 hover:border-blue-200 text-blue-700 text-base transition-all duration-200 group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="line-clamp-2">{suggestion}</span>
+                        <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
