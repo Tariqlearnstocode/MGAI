@@ -33,12 +33,13 @@ async function markdownToHtml(markdown: string): Promise<string> {
 function stripMarkdown(markdown: string): string {
   return markdown
     .replace(/#{1,6}\s+/g, '') // Remove headings
-    .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold
+    .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold markers but keep the content
+    .replace(/\*\*\*\*(.*?)\*\*\*\*/g, '$1') // Handle cases with double bold markup
+    .replace(/\*\*\*(.*?)\*\*\*/g, '$1') // Handle cases with triple asterisks
+    .replace(/__(.*?)__/g, '$1') // Handle underscore-style bold
     .replace(/\*(.*?)\*/g, '$1')     // Remove italic
+    .replace(/_(.*?)_/g, '$1')     // Remove underscore italic
     .replace(/\[(.*?)\]\(.*?\)/g, '$1') // Remove links
-    // Don't replace bullet points with a bullet character for better list detection
-    // .replace(/^\s*[-*+]\s+/gm, '• ') // Convert list items to bullets 
-    // .replace(/^\s*\d+\.\s+/gm, '• ') // Convert numbered lists to bullets
     .replace(/`{1,3}(.*?)`{1,3}/g, '$1') // Remove code blocks
     .replace(/[\u{1F300}-\u{1F6FF}|\u{1F900}-\u{1F9FF}|\u{2600}-\u{26FF}|\u{2700}-\u{27BF}]/gu, ''); // Remove emojis
 }
@@ -76,12 +77,19 @@ function processBulletPoints(text: string): {text: string, isBullet: boolean, in
 function processSection(section: DocumentSection): DocumentSection {
   const { title, content } = section;
   
+  // Escape special characters in the title for regex
+  const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  
   // Common patterns for section title in content
   const patterns = [
-    new RegExp(`^#\\s*${title}\\s*\\n`, 'i'),   // # Title
-    new RegExp(`^##\\s*${title}\\s*\\n`, 'i'),  // ## Title
-    new RegExp(`^${title}\\s*\\n={3,}\\n`, 'i') // Title
-                                                // ====
+    new RegExp(`^\\s*#\\s*${escapedTitle}\\s*(?:\\n|$)`, 'i'),             // # Title
+    new RegExp(`^\\s*##\\s*${escapedTitle}\\s*(?:\\n|$)`, 'i'),            // ## Title
+    new RegExp(`^\\s*###\\s*${escapedTitle}\\s*(?:\\n|$)`, 'i'),           // ### Title
+    new RegExp(`^\\s*${escapedTitle}\\s*\\n[=]+\\s*(?:\\n|$)`, 'i'),       // Title
+                                                                            // =====
+    new RegExp(`^\\s*${escapedTitle}\\s*\\n[-]+\\s*(?:\\n|$)`, 'i'),       // Title
+                                                                            // -----
+    new RegExp(`^\\s*(?:[*_]\\s*){1,2}${escapedTitle}(?:[*_]\\s*){1,2}\\s*(?:\\n|$)`, 'i'), // *Title* or **Title**
   ];
   
   let processedContent = content;
@@ -91,9 +99,13 @@ function processSection(section: DocumentSection): DocumentSection {
     if (pattern.test(processedContent)) {
       // Remove the title from the content as we'll add it separately
       processedContent = processedContent.replace(pattern, '');
+      console.log(`Removed duplicate title "${title}" from content.`);
       break;
     }
   }
+  
+  // Remove leading whitespace and empty lines after title removal
+  processedContent = processedContent.replace(/^\s+/, '');
   
   return {
     title,
@@ -133,14 +145,27 @@ function createPDF(sections: DocumentSection[]): jsPDF {
       // Process bullet points
       const { text, isBullet, indentLevel } = processBulletPoints(line);
       
-      // Remove emojis and strip markdown
-      const processedLine = stripMarkdown(text);
-      if (!processedLine.trim()) continue; // Skip lines that become empty after processing
+      // Detect and handle text formatting
+      const { text: processedText, isBold, isItalic } = detectTextFormatting(text);
+      
+      // Skip lines that become empty after processing
+      if (!processedText.trim()) continue;
+      
+      // Apply text formatting
+      if (isBold && isItalic) {
+        doc.setFont('helvetica', 'bolditalic');
+      } else if (isBold) {
+        doc.setFont('helvetica', 'bold');
+      } else if (isItalic) {
+        doc.setFont('helvetica', 'italic');
+      } else {
+        doc.setFont('helvetica', 'normal');
+      }
       
       // Format bullet points
       const indentation = 20 + (indentLevel * 10); // Base margin + indent level
       const bullet = isBullet ? '• ' : '';
-      const fullLine = isBullet ? bullet + processedLine : processedLine;
+      const fullLine = isBullet ? bullet + processedText : processedText;
       
       // Split long lines
       const splitText = doc.splitTextToSize(fullLine, pageWidth - (indentation + 20));
@@ -154,6 +179,9 @@ function createPDF(sections: DocumentSection[]): jsPDF {
       // Add the line to the PDF
       doc.text(splitText, indentation, yOffset);
       yOffset += (splitText.length * 7) + 3;
+      
+      // Reset font to normal for next line
+      doc.setFont('helvetica', 'normal');
     }
     
     // Add spacing after each section
@@ -169,24 +197,48 @@ function createPDF(sections: DocumentSection[]): jsPDF {
   return doc;
 }
 
+// Improved function to detect bold text for DOCX
+function detectTextFormatting(text: string): { 
+  text: string; 
+  isBold: boolean; 
+  isItalic: boolean;
+} {
+  // Detect bold formatting
+  const boldPattern1 = /\*\*(.*?)\*\*/;
+  const boldPattern2 = /__(.*?)__/;
+  let isBold = boldPattern1.test(text) || boldPattern2.test(text);
+  
+  // Detect italic formatting
+  const italicPattern1 = /(?<!\*)\*(?!\*)(.*?)(?<!\*)\*(?!\*)/;
+  const italicPattern2 = /(?<!_)_(?!_)(.*?)(?<!_)_(?!_)/;
+  let isItalic = italicPattern1.test(text) || italicPattern2.test(text);
+  
+  // Clean the text of markdown
+  let cleanedText = stripMarkdown(text);
+  
+  return { 
+    text: cleanedText, 
+    isBold, 
+    isItalic 
+  };
+}
+
+// Update the createDOCX function to use the improved text formatting detection
 function createDOCX(sections: DocumentSection[]): Document {
-  // Enhanced function to process paragraphs with better bullet point handling
+  // Enhanced function to process paragraphs with better bold handling
   const processParagraphs = (content: string) => {
     // Split content by newlines to identify paragraphs and handle bullets properly
     return content.split(/\n/).filter(Boolean).map(paragraph => {
       // Process for bullet points
       const { text, isBullet, indentLevel } = processBulletPoints(paragraph);
       
-      // Check for basic formatting
-      const isBold = text.includes('**');
-      const isItalic = text.includes('*') && !isBold;
-      
-      const cleanText = stripMarkdown(text);
+      // Process for text formatting
+      const { text: cleanedText, isBold, isItalic } = detectTextFormatting(text);
       
       return new Paragraph({
         children: [
           new TextRun({
-            text: cleanText,
+            text: cleanedText,
             bold: isBold,
             italics: isItalic
           })
