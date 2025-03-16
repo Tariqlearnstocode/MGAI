@@ -17,15 +17,30 @@ const MODEL = import.meta.env.VITE_OPENAI_MODEL || 'gpt-4o-mini';
  * This is used to handle different document types appropriately
  */
 function requiresSectionBySection(documentType: string): boolean {
+  // Add logging to debug the document type being checked
+  console.log(`Checking if document type "${documentType}" requires section-by-section generation`);
+  
   // List of document types that need section-by-section approach
-  return ['marketing_plan'].includes(documentType);
+  // Normalize the document type string to ensure consistent matching
+  const normalizedType = documentType.toLowerCase().trim();
+  
+  // Check against all possible variations
+  const sectionBySection = ['marketing_plan', 'marketingplan'].includes(normalizedType);
+  
+  console.log(`Document type "${documentType}" section-by-section: ${sectionBySection}`);
+  return sectionBySection;
 }
 
 /**
  * Get default sections for document types that require structured sections
  */
 function getDefaultSections(documentType: string): string[] {
-  if (documentType === 'marketing_plan') {
+  // Normalize document type for consistent matching
+  const normalizedType = documentType.toLowerCase().trim();
+  console.log(`Getting default sections for normalized type "${normalizedType}"`);
+  
+  if (normalizedType === 'marketing_plan' || normalizedType === 'marketingplan') {
+    console.log("Returning marketing plan sections");
     return [
       "Executive Summary",
       "Market Analysis",
@@ -38,6 +53,7 @@ function getDefaultSections(documentType: string): string[] {
   }
   
   // Default to a single section for other document types
+  console.log(`No specific sections for ${documentType}, using default`);
   return ["Complete Document"];
 }
 
@@ -139,36 +155,19 @@ function extractSections(promptTemplate: string): string[] {
   console.log("Raw prompt template:", promptTemplate);
   
   // Try to find "Include:" followed by a list, allowing for more flexibility in formatting
-  const includePattern = /Include:[\s\S]*?((?:\d+\.\s*[^\n\d]+\n?)+)/i;
+  const includePattern = /Include:[\s\S]*?((?:\d+\.\s*[^\n\d]+(?:\n|$))+)/i;
   const sectionMatch = promptTemplate.match(includePattern);
   
   if (!sectionMatch || !sectionMatch[1]) {
     console.warn("No 'Include:' section with numbered items found in template, trying direct extraction of numbered list");
     
     // Fallback: Try to find any numbered list in the template
-    const numberedListPattern = /((?:\d+\.\s*[^\n\d]+\n?)+)/;
+    const numberedListPattern = /((?:\d+\.\s*[^\n\d]+(?:\n|$))+)/;
     const directMatch = promptTemplate.match(numberedListPattern);
     
     if (!directMatch || !directMatch[1]) {
       console.error("No numbered list found in template at all");
-      
-      // Last resort: Generate default sections based on document type
-      /* 
-      // Commented out marketing plan fallback for testing
-      if (promptTemplate.toLowerCase().includes("marketing plan")) {
-        console.log("Using default sections for marketing plan");
-        return [
-          "Executive Summary",
-          "Market Analysis",
-          "Target Market Segmentation",
-          "Marketing Channels & Tactics",
-          "Budget Allocation",
-          "Implementation Timeline",
-          "Success Metrics"
-        ];
-      }
-      */
-      
+      // Return empty array, which will trigger use of default sections
       return [];
     }
     
@@ -176,28 +175,37 @@ function extractSections(promptTemplate: string): string[] {
     const rawContent = directMatch[1];
     console.log("Found numbered list directly:", rawContent);
     
-    // Extract the sections
-    const sections = rawContent.split(/\n/)
+    // Modified extraction logic to ensure proper separation
+    const sectionsArray = rawContent.split(/\d+\./)
       .map(line => line.trim())
-      .filter(line => /^\d+\./.test(line))
-      .map(line => line.replace(/^\d+\.\s*/, '').trim());
-    
-    console.log("Extracted sections:", sections);
-    return sections;
+      .filter(line => line.length > 0);
+      
+    console.log("Extracted sections array:", sectionsArray);
+    return sectionsArray;
   }
   
   // Extract the content after "Include:"
   const rawContent = sectionMatch[1];
   console.log("Found content after Include:", rawContent);
   
-  // Extract the sections
-  const sections = rawContent.split(/\n/)
+  // Modified extraction logic - split by number+period to get clean sections
+  const sectionsArray = rawContent.split(/\d+\./)
     .map(line => line.trim())
-    .filter(line => /^\d+\./.test(line))
-    .map(line => line.replace(/^\d+\.\s*/, '').trim());
-  
-  console.log("Extracted sections:", sections);
-  return sections;
+    .filter(line => line.length > 0);
+    
+  console.log("Extracted sections from Include:", sectionsArray);
+  return sectionsArray;
+}
+
+/**
+ * Clean up a section title by removing non-alphanumeric characters from beginning/end
+ * and ensuring it's properly formatted
+ */
+function cleanSectionTitle(title: string): string {
+  // Trim whitespace and punctuation from start and end
+  const cleaned = title.trim().replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '');
+  console.log(`Cleaned section title: "${title}" -> "${cleaned}"`);
+  return cleaned;
 }
 
 /**
@@ -210,19 +218,23 @@ async function generateSectionContent(
 ): Promise<string> {
   console.log(`Generating content for section "${section}" of document type "${documentType}"`);
   
+  // Force a check of section-by-section here to ensure it's being evaluated correctly
+  const isSectionBySection = requiresSectionBySection(documentType);
+  console.log(`Section-by-section check in generateSectionContent: ${isSectionBySection} for ${documentType}`);
+  
   let retryCount = 0;
   const maxRetries = 2;
   
   // Determine the appropriate max tokens based on document type
-  const maxTokens = requiresSectionBySection(documentType) ? 500 : 2500;
+  const maxTokens = isSectionBySection ? 500 : 2500;
   
   // Select the appropriate system prompt based on document type
-  const systemPrompt = requiresSectionBySection(documentType)
+  const systemPrompt = isSectionBySection
     ? "You are an expert marketing strategist and content creator. Generate professional, detailed, and actionable content for a SINGLE SECTION of a marketing document. Always use the specific business name provided and NEVER use placeholder text like 'brand name', 'your company', etc. Format your response using Markdown for better readability, including headings, bullet points, and emphasis where appropriate."
     : "You are an expert business strategist and content creator. Generate a COMPLETE, well-structured document with multiple subsections. Include clear headings for each major point and organize the content logically. Always use the specific business name provided and NEVER use placeholder text. Format your response using Markdown with proper headings, subheadings, bullet points, and emphasis where appropriate. The document should be comprehensive and cover all aspects requested in the prompt.";
   
   // If we're not doing section-by-section, adjust the user prompt instruction
-  const userPromptSuffix = requiresSectionBySection(documentType)
+  const userPromptSuffix = isSectionBySection
     ? `\n\nI need detailed content for the "${section}" section. Start your response with the section title formatted as a markdown heading (e.g., "# ${section}" or "## ${section}"). Then write 2-3 paragraphs of professional marketing content tailored specifically to the business name and details provided above. Use markdown formatting to make the content more readable and structured (bullet points, emphasis, etc.).`
     : `\n\nCreate a complete, well-structured document addressing all key points. Organize it with clear headings and subheadings, and ensure the content provides specific, actionable insights tailored to the business details provided. Use markdown formatting throughout to improve readability.`;
   
@@ -303,20 +315,31 @@ export async function generateDocumentWithAI(
     console.log(`Found prompt template for ${document.type}`);
     const prompt = await preparePrompt(promptTemplate, project, document);
     
+    // Add debugging for document type before checking sections
+    console.log(`Document type for section handling: "${document.type}", docType id: "${docType.id}"`);
+    
+    // Force a check of section-by-section to ensure it's working
+    const isSectionBySection = requiresSectionBySection(document.type);
+    console.log(`Full document type check in generateDocumentWithAI: ${isSectionBySection} for ${document.type}`);
+    
     // Handle section titles differently based on document type
     let sectionTitles: string[] = [];
     
-    if (requiresSectionBySection(document.type)) {
+    if (isSectionBySection) {
       // For section-by-section documents like marketing_plan:
       // Extract section titles from the prompt template
       sectionTitles = extractSections(promptTemplate);
-      console.log(`Extracted ${sectionTitles.length} sections for ${document.type}: ${sectionTitles.join(', ')}`);
+      console.log(`Extracted ${sectionTitles.length} raw sections for ${document.type}:`, sectionTitles);
+      
+      // Clean up section titles
+      sectionTitles = sectionTitles.map(cleanSectionTitle);
+      console.log(`Cleaned ${sectionTitles.length} sections for ${document.type}:`, sectionTitles);
       
       // If no sections were found, use default sections
       if (sectionTitles.length === 0) {
         console.warn(`No sections found in prompt template for ${document.type}, using defaults`);
         sectionTitles = getDefaultSections(document.type);
-        console.log(`Using default sections for ${document.type}: ${sectionTitles.join(', ')}`);
+        console.log(`Using default sections for ${document.type}:`, sectionTitles);
       }
     } else {
       // For other document types: use a single section
@@ -333,6 +356,9 @@ export async function generateDocumentWithAI(
     // Generate content for each section
     for (let i = 0; i < sections.length; i++) {
       const section = sections[i];
+      
+      // Log the section we're working on
+      console.log(`Generating content for section ${i+1}/${sections.length}: "${section.title}"`);
       
       // Report progress
       await updateDocumentProgress(document.id, {
