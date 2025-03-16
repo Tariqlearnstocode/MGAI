@@ -13,6 +13,35 @@ const openai = new OpenAI({
 const MODEL = import.meta.env.VITE_OPENAI_MODEL || 'gpt-4o-mini';
 
 /**
+ * Determines if a document type should use section-by-section generation
+ * This is used to handle different document types appropriately
+ */
+function requiresSectionBySection(documentType: string): boolean {
+  // List of document types that need section-by-section approach
+  return ['marketing_plan'].includes(documentType);
+}
+
+/**
+ * Get default sections for document types that require structured sections
+ */
+function getDefaultSections(documentType: string): string[] {
+  if (documentType === 'marketing_plan') {
+    return [
+      "Executive Summary",
+      "Market Analysis",
+      "Target Market Segmentation",
+      "Marketing Channels & Tactics",
+      "Budget Allocation",
+      "Implementation Timeline",
+      "Success Metrics"
+    ];
+  }
+  
+  // Default to a single section for other document types
+  return ["Complete Document"];
+}
+
+/**
  * Prepare prompt template by replacing placeholders with actual project data and required info
  */
 async function preparePrompt(template: string, projectData: Project, document: Document): Promise<string> {
@@ -124,6 +153,8 @@ function extractSections(promptTemplate: string): string[] {
       console.error("No numbered list found in template at all");
       
       // Last resort: Generate default sections based on document type
+      /* 
+      // Commented out marketing plan fallback for testing
       if (promptTemplate.toLowerCase().includes("marketing plan")) {
         console.log("Using default sections for marketing plan");
         return [
@@ -136,6 +167,7 @@ function extractSections(promptTemplate: string): string[] {
           "Success Metrics"
         ];
       }
+      */
       
       return [];
     }
@@ -181,6 +213,19 @@ async function generateSectionContent(
   let retryCount = 0;
   const maxRetries = 2;
   
+  // Determine the appropriate max tokens based on document type
+  const maxTokens = requiresSectionBySection(documentType) ? 500 : 2500;
+  
+  // Select the appropriate system prompt based on document type
+  const systemPrompt = requiresSectionBySection(documentType)
+    ? "You are an expert marketing strategist and content creator. Generate professional, detailed, and actionable content for a SINGLE SECTION of a marketing document. Always use the specific business name provided and NEVER use placeholder text like 'brand name', 'your company', etc. Format your response using Markdown for better readability, including headings, bullet points, and emphasis where appropriate."
+    : "You are an expert business strategist and content creator. Generate a COMPLETE, well-structured document with multiple subsections. Include clear headings for each major point and organize the content logically. Always use the specific business name provided and NEVER use placeholder text. Format your response using Markdown with proper headings, subheadings, bullet points, and emphasis where appropriate. The document should be comprehensive and cover all aspects requested in the prompt.";
+  
+  // If we're not doing section-by-section, adjust the user prompt instruction
+  const userPromptSuffix = requiresSectionBySection(documentType)
+    ? `\n\nI need detailed content for the "${section}" section. Start your response with the section title formatted as a markdown heading (e.g., "# ${section}" or "## ${section}"). Then write 2-3 paragraphs of professional marketing content tailored specifically to the business name and details provided above. Use markdown formatting to make the content more readable and structured (bullet points, emphasis, etc.).`
+    : `\n\nCreate a complete, well-structured document addressing all key points. Organize it with clear headings and subheadings, and ensure the content provides specific, actionable insights tailored to the business details provided. Use markdown formatting throughout to improve readability.`;
+  
   while (retryCount <= maxRetries) {
     try {
       // Make the API call following the documented pattern
@@ -189,15 +234,15 @@ async function generateSectionContent(
         messages: [
           {
             role: "system",
-            content: "You are an expert marketing strategist and content creator. Generate professional, detailed, and actionable content for marketing documents. Always use the specific business name provided and NEVER use placeholder text like 'brand name', 'your company', etc. Format your response using Markdown for better readability, including headings, bullet points, and emphasis where appropriate."
+            content: systemPrompt
           },
           {
             role: "user",
-            content: `${prompt}\n\nI need detailed content for the "${section}" section. Start your response with the section title formatted as a markdown heading (e.g., "# ${section}" or "## ${section}"). Then write 2-3 paragraphs of professional marketing content tailored specifically to the business name and details provided above. Use markdown formatting to make the content more readable and structured (bullet points, emphasis, etc.).`
+            content: `${prompt}${userPromptSuffix}`
           }
         ],
         temperature: 0.7,
-        max_tokens: 500
+        max_tokens: maxTokens
       });
 
       // Log the response and extract the content
@@ -258,53 +303,25 @@ export async function generateDocumentWithAI(
     console.log(`Found prompt template for ${document.type}`);
     const prompt = await preparePrompt(promptTemplate, project, document);
     
-    // Extract section titles
-    let sectionTitles = extractSections(promptTemplate);
-    console.log(`Extracted ${sectionTitles.length} sections for ${document.type}: ${sectionTitles.join(', ')}`);
+    // Handle section titles differently based on document type
+    let sectionTitles: string[] = [];
     
-    // If no sections were found, use default sections based on document type
-    if (sectionTitles.length === 0) {
-      console.warn(`No sections found in prompt template for ${document.type}, using defaults`);
+    if (requiresSectionBySection(document.type)) {
+      // For section-by-section documents like marketing_plan:
+      // Extract section titles from the prompt template
+      sectionTitles = extractSections(promptTemplate);
+      console.log(`Extracted ${sectionTitles.length} sections for ${document.type}: ${sectionTitles.join(', ')}`);
       
-      if (document.type === 'marketing_plan') {
-        sectionTitles = [
-          "Executive Summary",
-          "Market Analysis",
-          "Target Market Segmentation",
-          "Marketing Channels & Tactics",
-          "Budget Allocation",
-          "Implementation Timeline",
-          "Success Metrics"
-        ];
-      } else if (document.type === 'customer_acquisition') {
-        sectionTitles = [
-          "Acquisition Strategy",
-          "Channel Mix",
-          "Lead Generation Tactics",
-          "Sales Funnel Design",
-          "Conversion Optimization",
-          "Cost Per Acquisition Targets"
-        ];
-      } else if (document.type === 'brand_guidelines') {
-        sectionTitles = [
-          "Brand Story & Values",
-          "Voice & Tone",
-          "Messaging Framework",
-          "Visual Style Guide",
-          "Communication Guidelines"
-        ];
-      } else {
-        // Generic sections for any document type
-        sectionTitles = [
-          "Introduction",
-          "Main Content",
-          "Strategy",
-          "Implementation",
-          "Conclusion"
-        ];
+      // If no sections were found, use default sections
+      if (sectionTitles.length === 0) {
+        console.warn(`No sections found in prompt template for ${document.type}, using defaults`);
+        sectionTitles = getDefaultSections(document.type);
+        console.log(`Using default sections for ${document.type}: ${sectionTitles.join(', ')}`);
       }
-      
-      console.log(`Using default sections for ${document.type}: ${sectionTitles.join(', ')}`);
+    } else {
+      // For other document types: use a single section
+      sectionTitles = ["Complete Document"];
+      console.log(`Using single section approach for ${document.type}`);
     }
     
     // Create empty sections to start with
