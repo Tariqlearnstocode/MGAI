@@ -4,7 +4,7 @@ import { Download, RefreshCw, Wand2, AlertCircle, ChevronDown, FileText, File } 
 import { DocumentType, getLatestDocumentTypes } from '@/lib/documents';
 import { updateDocument, getDocument, getProjectBasicInfo } from '@/lib/projects';
 import { useDocumentSubscription } from '@/lib/hooks/useDocumentSubscription';
-import { downloadDocument } from '@/lib/download';
+import { downloadDocument } from '@/lib/download.tsx';
 import { generateDocumentWithAI, updateDocumentProgress } from '@/lib/openai';
 import type { Document, Project } from '@/lib/projects';
 import ReactMarkdown from 'react-markdown';
