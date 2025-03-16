@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Download, RefreshCw, Wand2, AlertCircle, ChevronDown, FileText, File } from 'lucide-react';
-import { DOCUMENT_TYPES } from '@/lib/documents';
+import { DocumentType, getLatestDocumentTypes } from '@/lib/documents';
 import { updateDocument, getDocument, getProjectBasicInfo } from '@/lib/projects';
 import { useDocumentSubscription } from '@/lib/hooks/useDocumentSubscription';
 import { downloadDocument } from '@/lib/download';
@@ -21,6 +21,7 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const [initialDocument, setInitialDocument] = useState<Document | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [docTypes, setDocTypes] = useState<DocumentType[]>([]);
 
   // Subscribe to real-time updates
   const { document: liveDocument, error: subscriptionError } = useDocumentSubscription(documentId);
@@ -29,9 +30,12 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
   useEffect(() => {
     async function fetchDocument() {
       try {
+        console.log('Fetching document with ID:', documentId);
         const doc = await getDocument(documentId);
+        console.log('Document fetched:', doc);
         setInitialDocument(doc);
       } catch (err) {
+        console.error('Error fetching document:', err);
         setError(err instanceof Error ? err.message : 'Failed to load document');
       } finally {
         setIsLoading(false);
@@ -40,9 +44,28 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
     fetchDocument();
   }, [documentId]);
 
+  useEffect(() => {
+    const fetchDocumentTypes = async () => {
+      try {
+        console.log('Fetching document types from Supabase...');
+        const types = await getLatestDocumentTypes();
+        console.log('Document types fetched:', types);
+        setDocTypes(types);
+      } catch (error) {
+        console.error('Error fetching document types:', error);
+      }
+    };
+    
+    fetchDocumentTypes();
+  }, []);
+
   // Use live document if available, otherwise use initial document
   const activeDocument = liveDocument || initialDocument;
-  const docType = DOCUMENT_TYPES.find(doc => doc.id === activeDocument?.type);
+  
+  useEffect(() => {
+    console.log('Active document:', activeDocument);
+    console.log('Document types:', docTypes);
+  }, [activeDocument, docTypes]);
 
   const handleRequiredInfoSubmit = async (answers: Record<string, string>) => {
     if (!activeDocument) return;
@@ -94,7 +117,7 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
       setIsGenerating(true);
       
       // Get document type information
-      const docType = DOCUMENT_TYPES.find(dt => dt.id === activeDocument.type);
+      const docType = docTypes.find(dt => dt.id === activeDocument.type);
       if (!docType) throw new Error('Document type not supported');
 
       // Get the full project data
@@ -233,7 +256,7 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
     );
   }
 
-  if (!activeDocument || !docType) {
+  if (!activeDocument || !docTypes.find(doc => doc.id === activeDocument?.type)) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
@@ -253,7 +276,7 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
           </div>
           <div className="flex justify-between items-center">
             <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-              {docType.name}
+              {docTypes.find(doc => doc.id === activeDocument?.type)?.name}
               {activeDocument.type === 'marketing_plan' && (
                 <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                   Auto-generated
@@ -363,7 +386,7 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
               </div>
             ) : activeDocument.status === 'pending' ? (
               <div className="text-center py-12">
-                {docType.requiredInfo ? (
+                {docTypes.find(doc => doc.id === activeDocument?.type)?.requiredInfo ? (
                   <div className="max-w-lg mx-auto mt-8">
                     <form onSubmit={(e) => {
                       e.preventDefault();
@@ -375,7 +398,7 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
                       });
                       handleRequiredInfoSubmit(answers);
                     }} className="space-y-8">
-                      {docType.requiredInfo.questions.map((q) => (
+                      {docTypes.find(doc => doc.id === activeDocument?.type)?.requiredInfo?.questions?.map((q) => (
                         <div key={q.id} className="space-y-2">
                           <label className="block text-lg font-medium text-gray-900">
                             {q.question}

@@ -78,11 +78,13 @@ const support = [
     name: 'Support',
     href: '/app/support',
     icon: HelpCircle,
+    badge: undefined,
   },
   {
     name: 'Settings',
     href: '/app/settings',
     icon: Settings,
+    badge: undefined,
   },
 ];
 
@@ -94,7 +96,7 @@ interface NavItemProps {
   collapsed?: boolean;
 }
 
-function NavItem({ href, icon: Icon, children, badge, collapsed }: NavItemProps) {
+function NavItem({ children, href, icon: Icon, badge, collapsed }: NavItemProps) {
   const { pathname } = useLocation();
   const isActive = pathname === href;
   const isComingSoon = badge === 'Soon';
@@ -108,24 +110,43 @@ function NavItem({ href, icon: Icon, children, badge, collapsed }: NavItemProps)
         : 'hover:bg-blue-900/20 hover:text-white'
   );
 
-  const Component = isComingSoon ? 'div' : Link;
-  const linkProps = isComingSoon ? {} : { to: href };
+  if (isComingSoon) {
+    return (
+      <div className={commonClasses}>
+        <Icon
+          className={cn(
+            'h-5 w-5 shrink-0',
+            'text-gray-400'
+          )}
+        />
+        <span className={cn(
+          "flex-1 transition-all duration-200",
+          collapsed ? 'opacity-0 w-0' : 'opacity-100'
+        )}>{children}</span>
+        {badge && (
+          <span className={cn(
+            "absolute right-2 top-1 inline-flex items-center rounded-md px-2 py-1 text-xs font-medium transition-all duration-200",
+            'bg-gray-600/30 text-gray-200 ring-1 ring-inset ring-gray-400/50',
+            collapsed ? 'opacity-0 scale-0' : 'opacity-100 scale-100'
+          )}>
+            {badge}
+          </span>
+        )}
+      </div>
+    );
+  }
 
   return (
-    <Component
-      {...linkProps}
-      className={cn(
-        commonClasses
-      )}
+    <Link
+      to={href}
+      className={commonClasses}
     >
       <Icon
         className={cn(
           'h-5 w-5 shrink-0',
-          isComingSoon
-            ? 'text-gray-400'
-            : isActive
-              ? 'text-white'
-              : 'text-gray-200 group-hover:text-white'
+          isActive
+            ? 'text-white'
+            : 'text-gray-200 group-hover:text-white'
         )}
       />
       <span className={cn(
@@ -135,21 +156,19 @@ function NavItem({ href, icon: Icon, children, badge, collapsed }: NavItemProps)
       {badge && (
         <span className={cn(
           "absolute right-2 top-1 inline-flex items-center rounded-md px-2 py-1 text-xs font-medium transition-all duration-200",
-          isComingSoon
-            ? 'bg-gray-600/30 text-gray-200 ring-1 ring-inset ring-gray-400/50'
-            : 'bg-blue-900/30 text-blue-200 ring-1 ring-inset ring-blue-500/30',
+          'bg-blue-900/30 text-blue-200 ring-1 ring-inset ring-blue-500/30',
           collapsed ? 'opacity-0 scale-0' : 'opacity-100 scale-100'
         )}>
           {badge}
         </span>
       )}
-    </Component>
+    </Link>
   );
 }
 
 export default function AppSidebar() {
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -236,6 +255,7 @@ export default function AppSidebar() {
                 key={item.name}
                 href={item.href}
                 icon={item.icon}
+                badge={item.badge}
                 collapsed={collapsed}
               >
                 {item.name}

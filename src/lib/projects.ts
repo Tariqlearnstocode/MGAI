@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { User } from '@supabase/supabase-js';
-import { DOCUMENT_TYPES } from './documents';
+import { DocumentType, getLatestDocumentTypes } from './documents';
 
 export interface Project {
   id: string;
@@ -42,22 +42,29 @@ export interface Document {
   updated_at: string;
 }
 
-function generateDocumentContent(docType: string, projectData: Omit<Project, 'id' | 'user_id' | 'created_at' | 'updated_at'>) {
+function generateDocumentContent(_docType: string, _projectData: Partial<Omit<Project, 'id' | 'user_id' | 'created_at' | 'updated_at'>>) {
   // All documents start as pending and will be generated with OpenAI
   return {
-    sections: [],
-    status: 'pending'
+    sections: [] as Array<{title: string, content: string}>,
+    status: 'pending' as const
   };
 }
 
-export async function createProject(
-  data: Omit<Project, 'id' | 'user_id' | 'created_at' | 'updated_at'>,
-  user: User
-) {
+export type CreateProjectPayload = {
+  name: string;
+  business_type: string;
+  description: string;
+  target_audience: string;
+  goals: string;
+  budget: string;
+  challenges: string;
+};
+
+export const createProject = async (projectData: CreateProjectPayload, user: User): Promise<Project> => {
   const { data: project, error } = await supabase
     .from('projects')
     .insert({
-      ...data,
+      ...projectData,
       user_id: user.id
     })
     .select()
@@ -65,9 +72,10 @@ export async function createProject(
 
   if (error) throw error;
 
-  // Create documents for the project
-  const documentPromises = DOCUMENT_TYPES.map(docType => {
-    const { sections, status } = generateDocumentContent(docType.id, data);
+  // Create default documents for each document type
+  const documentTypes = await getLatestDocumentTypes();
+  const documentPromises = documentTypes.map(docType => {
+    const { sections, status } = generateDocumentContent(docType.id, projectData);
     
     return supabase
       .from('documents')
@@ -113,13 +121,16 @@ export async function getProject(id: string) {
   
   // Check if all document types exist, add any missing ones
   const existingDocTypes = project.documents.map((doc: Document) => doc.type);
-  const missingDocTypes = DOCUMENT_TYPES.filter(docType => !existingDocTypes.includes(docType.id));
+  
+  // Get document types and then filter them
+  const documentTypes = await getLatestDocumentTypes();
+  const missingDocTypes = documentTypes.filter(docType => !existingDocTypes.includes(docType.id));
   
   if (missingDocTypes.length > 0) {
     console.log(`Adding ${missingDocTypes.length} missing document types to project ${id}`);
     
     // Create missing document types
-    const documentPromises = missingDocTypes.map(docType => {
+    const documentPromises = missingDocTypes.map((docType: DocumentType) => {
       const { sections, status } = generateDocumentContent(docType.id, project);
       
       return supabase
@@ -233,4 +244,62 @@ export async function getDocument(id: string) {
 
   if (error) throw error;
   return document;
+}
+
+export const ensureUserHasAllDocumentTypes = async (projectId: string): Promise<void> => {
+  // Get all documents for the project
+  const { data: documents, error: fetchError } = await supabase
+    .from('documents')
+    .select('status, type')
+    .eq('project_id', projectId);
+
+  if (fetchError) throw fetchError;
+
+  // Check if all documents are completed
+  const allCompleted = documents?.every(doc => doc.status === 'completed');
+
+  // Update project status
+  const { error: updateError } = await supabase
+    .from('projects')
+    .update({ status: allCompleted ? 'completed' : 'draft' })
+    .eq('id', projectId);
+
+  if (updateError) throw updateError;
+
+  // Check which document types exist in this project
+  const existingDocTypes = documents?.map(doc => doc.type) || [];
+  
+  const documentTypes = await getLatestDocumentTypes();
+  const missingDocTypes = documentTypes.filter(docType => !existingDocTypes.includes(docType.id));
+  
+  // Create documents for any missing document types
+  if (missingDocTypes.length > 0) {
+    console.log(`Adding ${missingDocTypes.length} missing document types to project ${projectId}`);
+    
+    // Create missing document types
+    const documentPromises = missingDocTypes.map(docType => {
+      const { sections, status } = generateDocumentContent(docType.id, {});
+      
+      return supabase
+        .from('documents')
+        .insert({
+          project_id: projectId,
+          type: docType.id,
+          version: 1,
+          content: { sections },
+          status
+        })
+        .select();
+    });
+    
+    const results = await Promise.all(documentPromises);
+    
+    // Add the new documents to the project data
+    results.forEach((result: any) => {
+      if (result.data && result.data.length > 0) {
+        // Assuming you want to add the new document to the project's document list
+        // You might want to update the project's document list to include this new document
+      }
+    });
+  }
 }

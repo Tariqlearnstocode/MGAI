@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import { supabase } from './supabase';
-import { DOCUMENT_TYPES } from './documents';
+import { getLatestDocumentTypes } from './documents';
 import type { Project, Document } from './projects';
 
 // Initialize OpenAI client using the documented approach
@@ -15,7 +15,7 @@ const MODEL = import.meta.env.VITE_OPENAI_MODEL || 'gpt-4o-mini';
 /**
  * Prepare prompt template by replacing placeholders with actual project data and required info
  */
-function preparePrompt(template: string, projectData: Project, document: Document): string {
+async function preparePrompt(template: string, projectData: Project, document: Document): Promise<string> {
   // Extract all available project data for reference - no fallbacks needed as these are required fields
   const projectInfo = {
     business_name: projectData.name,
@@ -41,8 +41,9 @@ function preparePrompt(template: string, projectData: Project, document: Documen
     .replace(/{goals}/g, projectInfo.goals)
     .replace(/{challenges}/g, projectInfo.challenges);
   
-  // Get document type definition
-  const docType = DOCUMENT_TYPES.find(dt => dt.id === document.type);
+  // Fetch document type
+  const documentTypes = await getLatestDocumentTypes();
+  const docType = documentTypes.find(dt => dt.id === document.type);
   
   // Add clear instruction about not using placeholder text
   let additionalInstructions = `\n\n===IMPORTANT INSTRUCTIONS===\n`;
@@ -73,7 +74,7 @@ function preparePrompt(template: string, projectData: Project, document: Documen
     
     if (Object.keys(requiredInfo).length > 0 && !wasSkipped) {
       // User provided some required information - include it in the prompt
-      docType.requiredInfo.questions.forEach(question => {
+      docType.requiredInfo.questions.forEach((question: any) => {
         const answer = requiredInfo[question.id];
         if (answer) {
           additionalInstructions += `${question.question} ${answer}\n`;
@@ -242,8 +243,8 @@ export async function generateDocumentWithAI(
   console.log(`Starting document generation for type: ${document.type}`);
   
   try {
-    // Find the document type
-    const docType = DOCUMENT_TYPES.find(dt => dt.id === document.type);
+    const documentTypes = await getLatestDocumentTypes();
+    const docType = documentTypes.find(dt => dt.id === document.type);
     if (!docType) {
       throw new Error(`Document type ${document.type} not found`);
     }
@@ -255,7 +256,7 @@ export async function generateDocumentWithAI(
     }
     
     console.log(`Found prompt template for ${document.type}`);
-    const prompt = preparePrompt(promptTemplate, project, document);
+    const prompt = await preparePrompt(promptTemplate, project, document);
     
     // Extract section titles
     let sectionTitles = extractSections(promptTemplate);
@@ -370,5 +371,21 @@ export async function updateDocumentProgress(
     if (error) throw error;
   } catch (error) {
     console.error('Error updating document progress:', error);
+  }
+}
+
+export async function expandDocument(document: any) {
+  try {
+    // ... existing code ...
+    
+    const documentTypes = await getLatestDocumentTypes();
+    const docType = documentTypes.find(dt => dt.id === document.type);
+    if (!docType) {
+      throw new Error(`Document type ${document.type} not found`);
+    }
+    
+    // ... existing code ...
+  } catch (error) {
+    // ... existing code ...
   }
 }

@@ -352,12 +352,7 @@ export default function NewProject() {
                     size="sm"
                     className="h-8 px-3 text-sm hover:bg-blue-50 hover:text-blue-600"
                     onClick={() => {
-                      // Randomize and display suggestions
-                      const randomized = [...SUGGESTIONS.description]
-                        .sort(() => Math.random() - 0.5)
-                        .slice(0, 2);
-                        
-                      // We'll just force a re-render since we don't need state for this
+                      // We'll just force a re-render to get new random suggestions
                       setAnswers(prev => ({ ...prev }));
                     }}
                   >
@@ -366,18 +361,22 @@ export default function NewProject() {
                   </Button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {SUGGESTIONS.description.slice(0, 2).map((suggestion, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setAnswers(prev => ({ ...prev, description: suggestion }))}
-                      className="text-left px-4 py-3 rounded-lg border-2 border-transparent bg-blue-50 hover:bg-blue-100 hover:border-blue-200 text-blue-700 text-base transition-all duration-200 group"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="line-clamp-2">{suggestion}</span>
-                        <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-                      </div>
-                    </button>
-                  ))}
+                  {/* Get 2 random suggestions each time */}
+                  {[...SUGGESTIONS.description]
+                    .sort(() => Math.random() - 0.5)
+                    .slice(0, 2)
+                    .map((suggestion, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setAnswers(prev => ({ ...prev, description: suggestion }))}
+                        className="text-left px-4 py-3 rounded-lg border-2 border-transparent bg-blue-50 hover:bg-blue-100 hover:border-blue-200 text-blue-700 text-base transition-all duration-200 group"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="line-clamp-2">{suggestion}</span>
+                          <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                        </div>
+                      </button>
+                    ))}
                 </div>
               </div>
             )}
