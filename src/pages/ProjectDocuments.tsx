@@ -4,6 +4,7 @@ import { getProject, updateDocument } from '@/lib/projects';
 import { generateDocumentWithAI, updateDocumentProgress } from '@/lib/openai';
 import DocumentViewer from '@/components/DocumentViewer';
 import DocumentSidebar from '@/components/DocumentSidebar';
+import { Menu, X } from 'lucide-react';
 import type { Project, Document } from '@/lib/projects';
 
 export default function ProjectDocuments() {
@@ -13,9 +14,14 @@ export default function ProjectDocuments() {
   const [project, setProject] = useState<Project & { documents: Document[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [autoGeneratingMarketing, setAutoGeneratingMarketing] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const handleDocumentSelect = (docId: string) => {
     setSelectedDoc(docId);
+    // Close sidebar on mobile after selection
+    if (window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
   };
 
   // Auto-generate marketing plan if it's in pending status
@@ -148,6 +154,22 @@ export default function ProjectDocuments() {
     }
 
     loadProject();
+
+    // Set initial sidebar state based on screen size
+    const checkScreenSize = () => {
+      setSidebarOpen(window.innerWidth >= 768);
+    };
+    
+    // Check on load
+    checkScreenSize();
+    
+    // Add resize listener
+    window.addEventListener('resize', checkScreenSize);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('resize', checkScreenSize);
+    };
   }, [id]);
 
   if (!project) {
@@ -155,14 +177,43 @@ export default function ProjectDocuments() {
   }
 
   return (
-    <div className="h-screen bg-gray-50 flex overflow-hidden">
-      <DocumentSidebar
-        documents={project.documents}
-        selectedDoc={selectedDoc}
-        onDocumentSelect={handleDocumentSelect}
-        onBack={() => navigate('/app')}
-      />
-      <div className="flex-1 overflow-hidden">
+    <div className="h-screen bg-gray-50 flex flex-col md:flex-row overflow-hidden relative">
+      {/* Mobile sidebar toggle button */}
+      <button 
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="md:hidden fixed top-4 left-4 z-50 bg-white p-2 rounded-md shadow-md"
+        aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+      >
+        {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+      </button>
+      
+      {/* Sidebar - hidden on mobile when closed */}
+      <div className={`
+        transition-all duration-300 ease-in-out
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        fixed md:relative w-full md:w-80 h-full z-40 md:z-auto
+      `}>
+        <DocumentSidebar
+          documents={project.documents}
+          selectedDoc={selectedDoc}
+          onDocumentSelect={handleDocumentSelect}
+          onBack={() => navigate('/app')}
+        />
+      </div>
+      
+      {/* Overlay for mobile when sidebar is open */}
+      {sidebarOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      
+      {/* Main content area - full width when sidebar closed on mobile */}
+      <div className={`
+        flex-1 overflow-hidden transition-all duration-300 ease-in-out
+        ${sidebarOpen ? 'md:ml-0' : 'ml-0'}
+      `}>
         <DocumentViewer
           project={project}
           selectedDoc={selectedDoc}

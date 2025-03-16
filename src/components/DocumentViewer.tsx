@@ -270,24 +270,24 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
   return (
     <div className="h-full flex flex-col">
       <header className="bg-white shadow">
-        <div className="mx-auto px-4 py-4 sm:px-6 lg:px-8">
+        <div className="mx-auto px-3 sm:px-4 py-4 sm:px-6 lg:px-8">
           <div className="mb-2">
-            <h2 className="text-lg font-medium text-gray-600">{projectName}</h2>
+            <h2 className="text-lg font-medium text-gray-600 truncate">{projectName}</h2>
           </div>
-          <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 mb-3 sm:mb-0">
               {docTypes.find(doc => doc.id === activeDocument?.type)?.name}
               {activeDocument.type === 'marketing_plan' && (
-                <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                   Auto-generated
                 </span>
               )}
             </h1>
-            <div className="flex gap-3">
+            <div className="flex gap-2 sm:gap-3">
               {activeDocument.status === 'pending' && (
                 <Button 
                   size="sm" 
-                  className="bg-blue-500 hover:bg-blue-600"
+                  className="bg-blue-500 hover:bg-blue-600 w-full sm:w-auto"
                   onClick={handleRegenerate}
                   disabled={isGenerating}
                 >
@@ -299,24 +299,24 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
                 variant="outline"
                 size="sm"
                 onClick={handleRegenerate}
-                className={activeDocument.status === 'pending' ? 'hidden' : ''}
+                className={`${activeDocument.status === 'pending' ? 'hidden' : ''} w-full sm:w-auto`}
                 disabled={isGenerating}
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Regenerate
               </Button>
-              <div className="relative">
+              <div className="relative w-full sm:w-auto">
                 <Button 
                   size="sm"
                   onClick={() => setShowDownloadMenu(!showDownloadMenu)}
-                  className="flex items-center"
+                  className="flex items-center justify-center w-full sm:w-auto"
                 >
                   <Download className="h-4 w-4 mr-2" />
                   Download
                   <ChevronDown className="h-4 w-4 ml-2" />
                 </Button>
                 {showDownloadMenu && (
-                  <div className="absolute right-0 mt-2 w-60 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+                  <div className="absolute right-0 mt-2 w-full sm:w-60 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
                     <div className="py-1" role="menu">
                       <button
                         onClick={() => handleDownload('docx')}
@@ -355,13 +355,13 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto bg-white m-6 rounded-lg shadow min-h-0">
-        <div className="p-8">
+      <main className="flex-1 overflow-y-auto bg-white m-2 sm:m-6 rounded-lg shadow min-h-0">
+        <div className="p-4 sm:p-8">
           <div className="prose max-w-none">
             {error || subscriptionError ? (
-              <div className="text-center py-12">
+              <div className="text-center py-8 sm:py-12">
                 <div className="flex items-center justify-center text-red-600 mb-4">
-                  <AlertCircle className="h-12 w-12" />
+                  <AlertCircle className="h-10 sm:h-12 w-10 sm:w-12" />
                 </div>
                 <p className="text-lg text-red-600">Generation failed</p>
                 <p className="text-sm text-gray-500 mt-2">{error || subscriptionError}</p>
@@ -374,7 +374,7 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
                 </Button>
               </div>
             ) : isGenerating || activeDocument.status === 'generating' ? (
-              <div className="text-center py-12">
+              <div className="text-center py-8 sm:py-12">
                 <div className="max-w-md mx-auto">
                   <div className="mb-6">
                     <h3 className="text-xl font-semibold text-gray-900 mb-2">
@@ -393,9 +393,9 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
                 </div>
               </div>
             ) : activeDocument.status === 'pending' ? (
-              <div className="text-center py-12">
+              <div className="text-center py-8 sm:py-12">
                 {docTypes.find(doc => doc.id === activeDocument?.type)?.requiredInfo ? (
-                  <div className="max-w-lg mx-auto mt-8">
+                  <div className="max-w-lg mx-auto mt-4 sm:mt-8 px-2 sm:px-0">
                     <form onSubmit={(e) => {
                       e.preventDefault();
                       const formData = new FormData(e.currentTarget);
@@ -405,7 +405,7 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
                         answers[key] = typeof value === 'string' ? value : '';
                       });
                       handleRequiredInfoSubmit(answers);
-                    }} className="space-y-8">
+                    }} className="space-y-6 sm:space-y-8">
                       {docTypes.find(doc => doc.id === activeDocument?.type)?.requiredInfo?.questions?.map((q) => (
                         <div key={q.id} className="space-y-2">
                           <label className="block text-lg font-medium text-gray-900">
@@ -492,13 +492,13 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
               </div>
             ) : (
               activeDocument.content.sections.map((section, index) => (
-                <div key={index} className="mb-8">
+                <div key={index} className="mb-6 sm:mb-8">
                   <div className="markdown-content">
                     <ReactMarkdown 
                       rehypePlugins={[rehypeSanitize]}
                       components={{
-                        h1: ({node, ...props}) => <h1 className="text-3xl font-bold mb-4" {...props} />,
-                        h2: ({node, ...props}) => <h2 className="text-2xl font-bold mb-3" {...props} />,
+                        h1: ({node, ...props}) => <h1 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4" {...props} />,
+                        h2: ({node, ...props}) => <h2 className="text-xl sm:text-2xl font-bold mb-2 sm:mb-3" {...props} />,
                         p: ({ node, ...props }) => {
                           // Safely check if first child starts with section title
                           const firstChild = Array.isArray(props.children) && props.children.length > 0 
@@ -508,8 +508,11 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
                           const firstChildText = typeof firstChild === 'string' ? firstChild : '';
                           const isFirstParagraph = index === 0 && firstChildText.startsWith(section.title);
                           
-                          return <p className={isFirstParagraph ? 'lead' : ''} {...props} />;
-                        }
+                          return <p className={isFirstParagraph ? 'lead text-base sm:text-lg' : 'text-sm sm:text-base'} {...props} />;
+                        },
+                        ul: ({node, ...props}) => <ul className="text-sm sm:text-base list-disc pl-5 sm:pl-8 mb-4" {...props} />,
+                        ol: ({node, ...props}) => <ol className="text-sm sm:text-base list-decimal pl-5 sm:pl-8 mb-4" {...props} />,
+                        blockquote: ({node, ...props}) => <blockquote className="pl-4 border-l-4 border-gray-200 italic mb-4" {...props} />
                       }}
                     >
                       {section.content.endsWith('|') 
