@@ -316,8 +316,26 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
                   <ChevronDown className="h-4 w-4 ml-2" />
                 </Button>
                 {showDownloadMenu && (
-                  <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+                  <div className="absolute right-0 mt-2 w-60 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
                     <div className="py-1" role="menu">
+                      <button
+                        onClick={() => handleDownload('docx')}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100"
+                        role="menuitem"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <File className="h-4 w-4 mr-2 text-blue-500" />
+                            <span>Download as Word</span>
+                          </div>
+                          <span 
+                            className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-medium cursor-help"
+                            title="Word format better preserves formatting, styles, and special characters"
+                          >
+                            Recommended
+                          </span>
+                        </div>
+                      </button>
                       <button
                         onClick={() => handleDownload('pdf')}
                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -325,17 +343,7 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
                       >
                         <div className="flex items-center">
                           <FileText className="h-4 w-4 mr-2 text-red-500" />
-                          Download as PDF
-                        </div>
-                      </button>
-                      <button
-                        onClick={() => handleDownload('docx')}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        role="menuitem"
-                      >
-                        <div className="flex items-center">
-                          <File className="h-4 w-4 mr-2 text-blue-500" />
-                          Download as Word
+                          <span>Download as PDF</span>
                         </div>
                       </button>
                     </div>
