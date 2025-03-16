@@ -1,4 +1,4 @@
-import { Document, Packer, Paragraph, HeadingLevel, TextRun } from 'docx';
+import { Document, Packer, Paragraph, HeadingLevel, TextRun, AlignmentType } from 'docx';
 import { jsPDF } from 'jspdf';
 import { saveAs } from 'file-saver';
 import { unified } from 'unified';
@@ -36,9 +36,39 @@ function stripMarkdown(markdown: string): string {
     .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold
     .replace(/\*(.*?)\*/g, '$1')     // Remove italic
     .replace(/\[(.*?)\]\(.*?\)/g, '$1') // Remove links
-    .replace(/^\s*[-*+]\s+/gm, '• ') // Convert list items to bullets
-    .replace(/^\s*\d+\.\s+/gm, '• ') // Convert numbered lists to bullets
+    // Don't replace bullet points with a bullet character for better list detection
+    // .replace(/^\s*[-*+]\s+/gm, '• ') // Convert list items to bullets 
+    // .replace(/^\s*\d+\.\s+/gm, '• ') // Convert numbered lists to bullets
     .replace(/`{1,3}(.*?)`{1,3}/g, '$1'); // Remove code blocks
+}
+
+// Enhanced version to detect and preserve bullet points
+function processBulletPoints(text: string): {text: string, isBullet: boolean, indentLevel: number} {
+  // Check for bullet points in various formats
+  const bulletMatch = text.match(/^(\s*)[-*+•]\s+(.*)$/);
+  const numberedMatch = text.match(/^(\s*)\d+\.\s+(.*)$/);
+  
+  if (bulletMatch) {
+    const indentLevel = Math.floor(bulletMatch[1].length / 2); // 2 spaces = 1 indent level
+    return {
+      text: bulletMatch[2],
+      isBullet: true,
+      indentLevel: indentLevel
+    };
+  } else if (numberedMatch) {
+    const indentLevel = Math.floor(numberedMatch[1].length / 2);
+    return {
+      text: numberedMatch[2],
+      isBullet: true, 
+      indentLevel: indentLevel
+    };
+  }
+  
+  return {
+    text,
+    isBullet: false,
+    indentLevel: 0
+  };
 }
 
 // Process a section to remove its own title from the content if it appears at the beginning
@@ -76,6 +106,39 @@ function createPDF(sections: DocumentSection[]): jsPDF {
   const pageWidth = doc.internal.pageSize.getWidth();
   
   sections.forEach((section, index) => {
+    // Handle title page specially
+    if (section.title === "Title Page") {
+      // Set up title page with centered text
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(24);
+      
+      // Extract the title from content (first line after # )
+      const titleMatch = section.content.match(/^#\s+([^\n]+)/);
+      if (titleMatch && titleMatch[1]) {
+        const title = titleMatch[1].trim();
+        // Center the title
+        const titleWidth = doc.getStringUnitWidth(title) * 24 / doc.internal.scaleFactor;
+        const titleX = (pageWidth - titleWidth) / 2;
+        doc.text(title, titleX, 60);
+        
+        // Add subtitle if present (second line)
+        const lines = section.content.split('\n').filter(line => line.trim());
+        if (lines.length > 1) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(16);
+          const subtitle = lines[1].trim();
+          const subtitleWidth = doc.getStringUnitWidth(subtitle) * 16 / doc.internal.scaleFactor;
+          const subtitleX = (pageWidth - subtitleWidth) / 2;
+          doc.text(subtitle, subtitleX, 80);
+        }
+        
+        // Add a new page after the title page
+        doc.addPage();
+        yOffset = 20;
+        return; // Skip further processing for title page
+      }
+    }
+    
     // Process section to avoid duplicate titles
     const processedSection = processSection(section);
     
@@ -83,22 +146,42 @@ function createPDF(sections: DocumentSection[]): jsPDF {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
     doc.text(processedSection.title, 20, yOffset);
-    yOffset += 10;
+    yOffset += 15;
 
-    // Process content to handle markdown
-    const plainTextContent = stripMarkdown(processedSection.content);
+    // Process content line by line to handle bullet points properly
+    const lines = processedSection.content.split('\n');
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(12);
-    const splitText = doc.splitTextToSize(plainTextContent, pageWidth - 40);
     
-    // Check if we need a new page
-    if (yOffset + (splitText.length * 7) > doc.internal.pageSize.getHeight() - 20) {
-      doc.addPage();
-      yOffset = 20;
+    for (let i = 0; i < lines.length; i++) {
+      let line = lines[i].trim();
+      if (!line) continue; // Skip empty lines
+      
+      // Process bullet points
+      const { text, isBullet, indentLevel } = processBulletPoints(line);
+      const processedLine = stripMarkdown(text);
+      
+      // Format bullet points
+      const indentation = 20 + (indentLevel * 10); // Base margin + indent level
+      const bullet = isBullet ? '• ' : '';
+      const fullLine = isBullet ? bullet + processedLine : processedLine;
+      
+      // Split long lines
+      const splitText = doc.splitTextToSize(fullLine, pageWidth - (indentation + 20));
+      
+      // Check if we need a new page
+      if (yOffset + (splitText.length * 7) > doc.internal.pageSize.getHeight() - 20) {
+        doc.addPage();
+        yOffset = 20;
+      }
+      
+      // Add the line to the PDF
+      doc.text(splitText, indentation, yOffset);
+      yOffset += (splitText.length * 7) + 3;
     }
     
-    doc.text(splitText, 20, yOffset);
-    yOffset += (splitText.length * 7) + 20;
+    // Add spacing after each section
+    yOffset += 10;
 
     // Add new page for next section if needed
     if (index < sections.length - 1 && yOffset > doc.internal.pageSize.getHeight() - 40) {
@@ -111,17 +194,18 @@ function createPDF(sections: DocumentSection[]): jsPDF {
 }
 
 function createDOCX(sections: DocumentSection[]): Document {
-  // Function to split content into paragraphs and handle markdown
+  // Enhanced function to process paragraphs with better bullet point handling
   const processParagraphs = (content: string) => {
-    // Split content by double newlines to identify paragraphs
-    return content.split(/\n\n+/).filter(Boolean).map(paragraph => {
-      // Check for basic formatting
-      const isBold = paragraph.includes('**');
-      const isItalic = paragraph.includes('*') && !isBold;
-      // Check for bullet points
-      const isBulletPoint = paragraph.trim().startsWith('- ') || paragraph.trim().startsWith('• ');
+    // Split content by newlines to identify paragraphs and handle bullets properly
+    return content.split(/\n/).filter(Boolean).map(paragraph => {
+      // Process for bullet points
+      const { text, isBullet, indentLevel } = processBulletPoints(paragraph);
       
-      const cleanText = stripMarkdown(paragraph);
+      // Check for basic formatting
+      const isBold = text.includes('**');
+      const isItalic = text.includes('*') && !isBold;
+      
+      const cleanText = stripMarkdown(text);
       
       return new Paragraph({
         children: [
@@ -131,7 +215,7 @@ function createDOCX(sections: DocumentSection[]): Document {
             italics: isItalic
           })
         ],
-        bullet: isBulletPoint ? { level: 0 } : undefined,
+        bullet: isBullet ? { level: indentLevel } : undefined,
         spacing: { after: 200 }
       });
     });
@@ -139,7 +223,44 @@ function createDOCX(sections: DocumentSection[]): Document {
   
   // Build the document with sections
   const docChildren = sections.flatMap(section => {
-    // Process section to avoid duplicate titles
+    // Special handling for title page
+    if (section.title === "Title Page") {
+      // Extract title from content
+      const titleMatch = section.content.match(/^#\s+([^\n]+)/);
+      const title = titleMatch ? titleMatch[1].trim() : "Document";
+      
+      // Extract subtitle if present
+      const lines = section.content.split('\n').filter(line => line.trim());
+      const subtitle = lines.length > 1 ? lines[1].trim() : "";
+      
+      return [
+        new Paragraph({
+          text: title,
+          heading: HeadingLevel.TITLE,
+          spacing: {
+            before: 400,
+            after: 200
+          },
+          alignment: AlignmentType.CENTER
+        }),
+        new Paragraph({
+          text: subtitle,
+          heading: HeadingLevel.HEADING_1,
+          spacing: {
+            before: 100,
+            after: 400
+          },
+          alignment: AlignmentType.CENTER
+        }),
+        // Add a page break after title page
+        new Paragraph({
+          text: '',
+          pageBreakBefore: true
+        })
+      ];
+    }
+    
+    // Process regular section
     const processedSection = processSection(section);
     
     // Create a heading for the section
