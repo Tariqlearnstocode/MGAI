@@ -488,7 +488,27 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
                       </p>
                     </form>
                   </div>
-                ) : null}
+                ) : (
+                  <div className="max-w-md mx-auto flex flex-col items-center">
+                    <div className="mb-6 text-center">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-3">Ready to Generate</h3>
+                      <p className="text-base text-gray-600">
+                        We'll use your project information to create a personalized {docTypes.find(doc => doc.id === activeDocument?.type)?.name}.
+                      </p>
+                      <p className="text-sm text-gray-500 mt-2">
+                        This will include relevant content based on your business name, industry, and other details you've provided.
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={handleRegenerate}
+                      className="bg-blue-500 hover:bg-blue-600 px-8"
+                      disabled={isGenerating}
+                    >
+                      <Wand2 className="h-4 w-4 mr-2" />
+                      Generate {docTypes.find(doc => doc.id === activeDocument?.type)?.name}
+                    </Button>
+                  </div>
+                )}
               </div>
             ) : (
               activeDocument.content.sections.map((section, index) => (
