@@ -227,12 +227,12 @@ async function generateSectionContent(
   const maxRetries = 2;
   
   // Determine the appropriate max tokens based on document type
-  const maxTokens = isSectionBySection ? 500 : 2500;
+  const maxTokens = isSectionBySection ? 800 : 2500;
   
   // Select the appropriate system prompt based on document type
   const systemPrompt = isSectionBySection
     ? "You are an expert marketing strategist and content creator. Generate professional, detailed, and actionable content for a SINGLE SECTION of a marketing document. Always use the specific business name provided and NEVER use placeholder text like 'brand name', 'your company', etc. Format your response using Markdown for better readability, including headings, bullet points, and emphasis where appropriate."
-    : "You are an expert business strategist and content creator. Generate a COMPLETE, well-structured document with multiple subsections. Include clear headings for each major point and organize the content logically. Always use the specific business name provided and NEVER use placeholder text. Format your response using Markdown with proper headings, subheadings, bullet points, and emphasis where appropriate. The document should be comprehensive and cover all aspects requested in the prompt.";
+    : "You are an expert marketing strategist and content creator. Generate a COMPLETE, well-structured document with multiple sections. Include clear headings for each major point and organize the content logically. Always use the specific business name provided and NEVER use placeholder text. Format your response using Markdown with proper headings, subheadings, bullet points, and emphasis where appropriate. The document should be comprehensive and cover all aspects requested in the prompt.";
   
   // If we're not doing section-by-section, adjust the user prompt instruction
   const userPromptSuffix = isSectionBySection
