@@ -154,47 +154,48 @@ async function preparePrompt(template: string, projectData: Project, document: D
 function extractSections(promptTemplate: string): string[] {
   console.log("Raw prompt template:", promptTemplate);
   
-  // Try to find "Include:" followed by a list, allowing for more flexibility in formatting
-  const includePattern = /Include:[\s\S]*?((?:\d+\.\s*[^\n\d]+(?:\n|$))+)/i;
-  const sectionMatch = promptTemplate.match(includePattern);
+  // First approach: Look for numbered items using regex
+  // This pattern matches lines that start with a number followed by a period and then text
+  const numberedPattern = /^\s*(\d+)\.\s*([^\n]+)/gm;
+  const matches = Array.from(promptTemplate.matchAll(numberedPattern));
   
-  if (!sectionMatch || !sectionMatch[1]) {
-    console.warn("No 'Include:' section with numbered items found in template, trying direct extraction of numbered list");
-    
-    // Fallback: Try to find any numbered list in the template
-    const numberedListPattern = /((?:\d+\.\s*[^\n\d]+(?:\n|$))+)/;
-    const directMatch = promptTemplate.match(numberedListPattern);
-    
-    if (!directMatch || !directMatch[1]) {
-      console.error("No numbered list found in template at all");
-      // Return empty array, which will trigger use of default sections
-      return [];
-    }
-    
-    // Extract sections from direct numbered list
-    const rawContent = directMatch[1];
-    console.log("Found numbered list directly:", rawContent);
-    
-    // Modified extraction logic to ensure proper separation
-    const sectionsArray = rawContent.split(/\d+\./)
-      .map(line => line.trim())
-      .filter(line => line.length > 0);
-      
-    console.log("Extracted sections array:", sectionsArray);
-    return sectionsArray;
+  if (matches && matches.length > 0) {
+    // Extract just the text part (group 2) from each match
+    const sections = matches.map(match => match[2].trim());
+    console.log(`Found ${sections.length} numbered sections directly:`, sections);
+    return sections;
   }
   
-  // Extract the content after "Include:"
-  const rawContent = sectionMatch[1];
-  console.log("Found content after Include:", rawContent);
-  
-  // Modified extraction logic - split by number+period to get clean sections
-  const sectionsArray = rawContent.split(/\d+\./)
-    .map(line => line.trim())
-    .filter(line => line.length > 0);
+  // Second approach: Try to find "Include:" followed by a list
+  const includeIndex = promptTemplate.toLowerCase().indexOf('include:');
+  if (includeIndex !== -1) {
+    // Get the text after "Include:"
+    const textAfterInclude = promptTemplate.substring(includeIndex + 8);
     
-  console.log("Extracted sections from Include:", sectionsArray);
-  return sectionsArray;
+    // Look for numbered items in this text
+    const includeMatches = Array.from(textAfterInclude.matchAll(numberedPattern));
+    
+    if (includeMatches && includeMatches.length > 0) {
+      const sections = includeMatches.map(match => match[2].trim());
+      console.log(`Found ${sections.length} numbered sections after "Include:":`, sections);
+      return sections;
+    }
+  }
+  
+  // If we still haven't found sections, try more aggressive pattern matching
+  // Look for any bullet points, numbers, or dashes
+  const genericListPattern = /(?:^\s*(?:[\*\-•]|\d+\.|\([a-z\d]\))\s*)([^\n]+)/gm;
+  const genericMatches = Array.from(promptTemplate.matchAll(genericListPattern));
+  
+  if (genericMatches && genericMatches.length > 0) {
+    const sections = genericMatches.map(match => match[1].trim());
+    console.log(`Found ${sections.length} generic list items:`, sections);
+    return sections;
+  }
+  
+  // If all attempts fail, return empty array, which will trigger use of default sections
+  console.warn("No section format recognized in template, will use defaults");
+  return [];
 }
 
 /**
@@ -326,20 +327,35 @@ export async function generateDocumentWithAI(
     let sectionTitles: string[] = [];
     
     if (isSectionBySection) {
-      // For section-by-section documents like marketing_plan:
-      // Extract section titles from the prompt template
-      sectionTitles = extractSections(promptTemplate);
-      console.log(`Extracted ${sectionTitles.length} raw sections for ${document.type}:`, sectionTitles);
-      
-      // Clean up section titles
-      sectionTitles = sectionTitles.map(cleanSectionTitle);
-      console.log(`Cleaned ${sectionTitles.length} sections for ${document.type}:`, sectionTitles);
-      
-      // If no sections were found, use default sections
-      if (sectionTitles.length === 0) {
-        console.warn(`No sections found in prompt template for ${document.type}, using defaults`);
-        sectionTitles = getDefaultSections(document.type);
-        console.log(`Using default sections for ${document.type}:`, sectionTitles);
+      // For marketing plans, directly use the default sections instead of trying to extract them
+      // This ensures consistent section generation
+      const normalizedType = document.type.toLowerCase().trim();
+      if (normalizedType === 'marketing_plan' || normalizedType === 'marketingplan') {
+        console.log("Using predefined sections for marketing plan");
+        sectionTitles = [
+          "Executive Summary",
+          "Market Analysis",
+          "Target Market Segmentation",
+          "Marketing Channels & Tactics",
+          "Budget Allocation",
+          "Implementation Timeline",
+          "Success Metrics"
+        ];
+      } else {
+        // For other section-by-section documents, try extraction
+        sectionTitles = extractSections(promptTemplate);
+        console.log(`Extracted ${sectionTitles.length} raw sections for ${document.type}:`, sectionTitles);
+        
+        // Clean up section titles
+        sectionTitles = sectionTitles.map(cleanSectionTitle);
+        console.log(`Cleaned ${sectionTitles.length} sections for ${document.type}:`, sectionTitles);
+        
+        // If no sections were found, use default sections
+        if (sectionTitles.length === 0) {
+          console.warn(`No sections found in prompt template for ${document.type}, using defaults`);
+          sectionTitles = getDefaultSections(document.type);
+          console.log(`Using default sections for ${document.type}:`, sectionTitles);
+        }
       }
     } else {
       // For other document types: use a single section
