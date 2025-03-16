@@ -39,7 +39,8 @@ function stripMarkdown(markdown: string): string {
     // Don't replace bullet points with a bullet character for better list detection
     // .replace(/^\s*[-*+]\s+/gm, '• ') // Convert list items to bullets 
     // .replace(/^\s*\d+\.\s+/gm, '• ') // Convert numbered lists to bullets
-    .replace(/`{1,3}(.*?)`{1,3}/g, '$1'); // Remove code blocks
+    .replace(/`{1,3}(.*?)`{1,3}/g, '$1') // Remove code blocks
+    .replace(/[\u{1F300}-\u{1F6FF}|\u{1F900}-\u{1F9FF}|\u{2600}-\u{26FF}|\u{2700}-\u{27BF}]/gu, ''); // Remove emojis
 }
 
 // Enhanced version to detect and preserve bullet points
@@ -106,37 +107,9 @@ function createPDF(sections: DocumentSection[]): jsPDF {
   const pageWidth = doc.internal.pageSize.getWidth();
   
   sections.forEach((section, index) => {
-    // Handle title page specially
+    // Skip title page sections - we don't want them anymore
     if (section.title === "Title Page") {
-      // Set up title page with centered text
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(24);
-      
-      // Extract the title from content (first line after # )
-      const titleMatch = section.content.match(/^#\s+([^\n]+)/);
-      if (titleMatch && titleMatch[1]) {
-        const title = titleMatch[1].trim();
-        // Center the title
-        const titleWidth = doc.getStringUnitWidth(title) * 24 / doc.internal.scaleFactor;
-        const titleX = (pageWidth - titleWidth) / 2;
-        doc.text(title, titleX, 60);
-        
-        // Add subtitle if present (second line)
-        const lines = section.content.split('\n').filter(line => line.trim());
-        if (lines.length > 1) {
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(16);
-          const subtitle = lines[1].trim();
-          const subtitleWidth = doc.getStringUnitWidth(subtitle) * 16 / doc.internal.scaleFactor;
-          const subtitleX = (pageWidth - subtitleWidth) / 2;
-          doc.text(subtitle, subtitleX, 80);
-        }
-        
-        // Add a new page after the title page
-        doc.addPage();
-        yOffset = 20;
-        return; // Skip further processing for title page
-      }
+      return;
     }
     
     // Process section to avoid duplicate titles
@@ -159,7 +132,10 @@ function createPDF(sections: DocumentSection[]): jsPDF {
       
       // Process bullet points
       const { text, isBullet, indentLevel } = processBulletPoints(line);
+      
+      // Remove emojis and strip markdown
       const processedLine = stripMarkdown(text);
+      if (!processedLine.trim()) continue; // Skip lines that become empty after processing
       
       // Format bullet points
       const indentation = 20 + (indentLevel * 10); // Base margin + indent level
@@ -223,41 +199,9 @@ function createDOCX(sections: DocumentSection[]): Document {
   
   // Build the document with sections
   const docChildren = sections.flatMap(section => {
-    // Special handling for title page
+    // Skip title page sections
     if (section.title === "Title Page") {
-      // Extract title from content
-      const titleMatch = section.content.match(/^#\s+([^\n]+)/);
-      const title = titleMatch ? titleMatch[1].trim() : "Document";
-      
-      // Extract subtitle if present
-      const lines = section.content.split('\n').filter(line => line.trim());
-      const subtitle = lines.length > 1 ? lines[1].trim() : "";
-      
-      return [
-        new Paragraph({
-          text: title,
-          heading: HeadingLevel.TITLE,
-          spacing: {
-            before: 400,
-            after: 200
-          },
-          alignment: AlignmentType.CENTER
-        }),
-        new Paragraph({
-          text: subtitle,
-          heading: HeadingLevel.HEADING_1,
-          spacing: {
-            before: 100,
-            after: 400
-          },
-          alignment: AlignmentType.CENTER
-        }),
-        // Add a page break after title page
-        new Paragraph({
-          text: '',
-          pageBreakBefore: true
-        })
-      ];
+      return [];
     }
     
     // Process regular section
@@ -334,24 +278,14 @@ export async function downloadDocument(
         // Split the content into sections
         const newSections: DocumentSection[] = [];
         
-        // First, add a cover/title section if there's a main title
-        if (mainTitle !== documentTitle) {
-          newSections.push({
-            title: "Title Page",
-            content: `# ${mainTitle}\n\n${documentTitle}`
-          });
-        }
+        // We now skip title page creation
         
         // Process each heading as a section
         for (let i = 0; i < headingMatches.length; i++) {
           const currentMatch = headingMatches[i];
           const nextMatch = headingMatches[i + 1];
           
-          // Skip the first heading if it's the main title we already used
-          if (i === 0 && currentMatch[2].trim() === mainTitle) {
-            continue;
-          }
-          
+          // Use all headings, including the first one (previously used for title page)
           const title = currentMatch[2].trim();
           const startIndex = currentMatch.index;
           const endIndex = nextMatch ? nextMatch.index : content.length;
