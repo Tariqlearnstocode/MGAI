@@ -10,41 +10,19 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src")
     }
   },
-  base: './',
+  base: '/',
   build: {
     outDir: 'dist',
     target: 'es2015',
     sourcemap: false,
     cssMinify: true,
     rollupOptions: {
-      external: [
-        '@react-pdf/renderer',
-        'docx',
-        'file-saver',
-        'lucide-react',
-        '@heroicons/react',
-        'class-variance-authority',
-        'clsx',
-        'tailwind-merge',
-        'openai',
-        '@supabase/supabase-js',
-        'stripe',
-        'react-markdown',
-        'rehype-sanitize',
-        'rehype-stringify',
-        'remark-parse',
-        'remark-rehype',
-        'unified'
-      ],
       output: {
         manualChunks: {
           'vendor': ['react', 'react-dom', 'react-router-dom'],
           'ui': ['@headlessui/react'],
           'supabase': ['@supabase/auth-helpers-react', '@supabase/auth-ui-react', '@supabase/auth-ui-shared']
-        },
-        chunkFileNames: 'assets/js/[name]-[hash].js',
-        entryFileNames: 'assets/js/[name]-[hash].js',
-        assetFileNames: 'assets/[ext]/[name]-[hash].[ext]'
+        }
       }
     },
     commonjsOptions: {
@@ -57,8 +35,5 @@ export default defineConfig({
       target: 'es2020',
       supported: { bigint: true }
     }
-  },
-  ssr: {
-    noExternal: ['react', 'react-dom', 'react-router-dom']
   }
 });
