@@ -14,7 +14,6 @@ export default defineConfig({
     outDir: 'dist',
     target: 'es2015',
     sourcemap: false,
-    minify: 'terser',
     cssMinify: true,
     rollupOptions: {
       external: [
