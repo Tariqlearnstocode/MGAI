@@ -33,7 +33,8 @@ export default defineConfig({
         'rehype-sanitize',
         'rehype-stringify',
         'remark-parse',
-        'remark-rehype'
+        'remark-rehype',
+        'unified'
       ],
       output: {
         manualChunks: {
