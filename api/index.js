@@ -3,6 +3,7 @@ import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import bodyParser from 'body-parser';
+import OpenAI from 'openai';
 
 // Create Express app
 const app = express();
@@ -18,12 +19,49 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2023-10-16'
 });
 
+// Initialize OpenAI with server-side API key
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
+
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
 
 // Stripe webhook endpoint (raw body for signature verification)
 app.use('/api/webhook/stripe', bodyParser.raw({ type: 'application/json' }));
+
+// OpenAI completion endpoint
+app.post('/api/generate-content', async (req, res) => {
+  try {
+    const { prompt, model = process.env.OPENAI_MODEL || 'gpt-4o-mini', max_tokens } = req.body;
+
+    if (!prompt) {
+      return res.status(400).json({ error: 'Missing prompt parameter' });
+    }
+
+    const completionOptions = {
+      model: model,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+    };
+
+    // Add max_tokens if specified
+    if (max_tokens) {
+      completionOptions.max_tokens = max_tokens;
+    }
+
+    const completion = await openai.chat.completions.create(completionOptions);
+
+    return res.status(200).json({ 
+      result: completion.choices[0].message.content,
+      usage: completion.usage
+    });
+  } catch (error) {
+    console.error('Error generating content with OpenAI:', error);
+    return res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
 
 // Create Stripe checkout session
 app.post('/api/create-checkout-session', async (req, res) => {

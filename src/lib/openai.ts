@@ -1,16 +1,9 @@
-import OpenAI from 'openai';
 import { supabase } from './supabase';
 import { getLatestDocumentTypes } from './documents';
 import type { Project, Document } from './projects';
 
-// Initialize OpenAI client using the documented approach
-const openai = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true
-});
-
 // Model to use for document generation
-const MODEL = import.meta.env.VITE_OPENAI_MODEL || 'gpt-4o-mini';
+const MODEL = import.meta.env.OPENAI_MODEL || 'gpt-4o-mini';
 
 /**
  * Determines if a document type should use section-by-section generation
@@ -241,25 +234,39 @@ async function generateSectionContent(
   
   while (retryCount <= maxRetries) {
     try {
-      // Make the API call following the documented pattern
-      const completion = await openai.chat.completions.create({
-        model: MODEL,
-        messages: [
-          {
-            role: "system",
-            content: systemPrompt
-          },
-          {
-            role: "user",
-            content: `${prompt}${userPromptSuffix}`
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: maxTokens
+      // Create the full prompt
+      const fullPrompt = `${systemPrompt}\n\n${prompt}${userPromptSuffix}`;
+      console.log(`Sending prompt with length ${fullPrompt.length} chars to API for section "${section}"`);
+      
+      // Call the server API endpoint instead of using OpenAI directly
+      const apiUrl = 'http://localhost:5001/api/generate-content'; 
+      
+      console.log(`Using max_tokens: ${maxTokens} for section "${section}"`);
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: fullPrompt,
+          model: MODEL,
+          max_tokens: maxTokens
+        }),
       });
 
-      // Log the response and extract the content
-      const content = completion.choices[0]?.message?.content?.trim() || '';
+      if (!response.ok) {
+        console.error(`API returned status ${response.status} for section "${section}"`);
+        let errorData = null;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          console.error("Failed to parse error response");
+        }
+        throw new Error(errorData?.error || `API request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      const content = data.result;
       
       if (!content) {
         console.warn(`Empty response for section "${section}" - retrying`);
@@ -446,5 +453,48 @@ export async function expandDocument(document: any) {
     // ... existing code ...
   } catch (error) {
     // ... existing code ...
+  }
+}
+
+/**
+ * Call the server-side API for OpenAI content generation
+ */
+export async function callOpenAI(prompt: string, model = MODEL, max_tokens?: number): Promise<string> {
+  try {
+    console.log(`Calling OpenAI API with max_tokens: ${max_tokens}`);
+    
+    // Use explicit URL with host and port for local development
+    const apiUrl = 'http://localhost:5001/api/generate-content';
+    
+    // Always use the server API endpoint - never expose keys in client
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt,
+        model,
+        max_tokens
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`API returned status ${response.status}`);
+      let errorData = null;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        console.error("Failed to parse error response");
+      }
+      throw new Error(errorData?.error || `API request failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log(`Got API response - token usage: ${JSON.stringify(data.usage)}`);
+    return data.result;
+  } catch (error) {
+    console.error('Error calling OpenAI:', error);
+    throw error;
   }
 }

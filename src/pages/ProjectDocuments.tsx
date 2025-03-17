@@ -179,11 +179,22 @@ export default function ProjectDocuments() {
     // Add resize listener
     window.addEventListener('resize', checkScreenSize);
     
+    // Open sidebar by default on desktop
+    const mobile = window.innerWidth < 768;
+    setSidebarOpen(!mobile);
+    
     // Cleanup
     return () => {
       window.removeEventListener('resize', checkScreenSize);
     };
   }, [id]);
+
+  // Effect to keep sidebar open on desktop
+  useEffect(() => {
+    if (!isMobile) {
+      setSidebarOpen(true);
+    }
+  }, [isMobile]);
 
   if (!project) {
     return null;
@@ -295,7 +306,7 @@ export default function ProjectDocuments() {
   // Desktop layout with sidebar
   return (
     <div className="h-screen bg-gray-50 flex flex-row overflow-hidden">
-      {/* Sidebar - conditionally visible on desktop */}
+      {/* Sidebar - always visible on desktop */}
       <div className={`${sidebarOpen ? 'w-80' : 'w-0'} h-full transition-all duration-200 overflow-hidden`}>
         <DocumentSidebar
           documents={project.documents}
@@ -307,14 +318,16 @@ export default function ProjectDocuments() {
       
       {/* Main content area */}
       <div className="flex-1 overflow-hidden relative">
-        {/* Sidebar toggle button */}
-        <button 
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="absolute top-4 left-4 z-10 bg-white p-2 rounded-md shadow-md"
-          aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
-        >
-          {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
-        </button>
+        {/* Sidebar toggle button - only visible on mobile */}
+        {isMobile && (
+          <button 
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="absolute top-4 left-4 z-10 bg-white p-2 rounded-md shadow-md"
+            aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+          >
+            {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
+        )}
         
         <DocumentViewer
           project={project}

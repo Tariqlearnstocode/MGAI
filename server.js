@@ -4,13 +4,14 @@ import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
+import OpenAI from 'openai';
 
 // Load environment variables
 dotenv.config();
 
 // Create Express app
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -23,9 +24,58 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2023-10-16'
 });
 
+// Initialize OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
+
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
+
+// OpenAI endpoint for content generation
+app.post('/api/generate-content', async (req, res) => {
+  try {
+    console.log("Received OpenAI request with params:", JSON.stringify({
+      prompt_length: req.body.prompt?.length,
+      model: req.body.model,
+      max_tokens: req.body.max_tokens
+    }));
+    
+    const { prompt, model = process.env.OPENAI_MODEL || 'gpt-4o-mini', max_tokens } = req.body;
+
+    if (!prompt) {
+      return res.status(400).json({ error: 'Missing prompt parameter' });
+    }
+
+    const completionOptions = {
+      model: model,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+    };
+
+    // Add max_tokens if specified
+    if (max_tokens) {
+      console.log(`Setting max_tokens to ${max_tokens}`);
+      completionOptions.max_tokens = parseInt(max_tokens);
+    }
+
+    console.log("Calling OpenAI with options:", JSON.stringify(completionOptions, null, 2));
+    const completion = await openai.chat.completions.create(completionOptions);
+    console.log("OpenAI response received with tokens:", completion.usage);
+
+    return res.status(200).json({ 
+      result: completion.choices[0].message.content,
+      usage: completion.usage
+    });
+  } catch (error) {
+    console.error('Error generating content with OpenAI:', error);
+    if (error.response) {
+      console.error('API Error details:', JSON.stringify(error.response.data, null, 2));
+    }
+    return res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
 
 // Stripe webhook endpoint (raw body for signature verification)
 app.use('/api/webhook/stripe', bodyParser.raw({ type: 'application/json' }));
