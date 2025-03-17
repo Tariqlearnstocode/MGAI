@@ -29,7 +29,7 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
   // Payment context for access control
   const { checkDocumentAccess, getPreviewPercentage } = usePayment();
   const [hasFullAccess, setHasFullAccess] = useState(false);
-  
+
   // Subscribe to real-time updates
   const { document: liveDocument, error: subscriptionError } = useDocumentSubscription(documentId);
 
@@ -270,7 +270,7 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
   // Add a function to render document content
   const renderDocumentContent = (doc: Document) => {
     if (doc.status === 'generating') {
-      return (
+    return (
         <div className="p-4 bg-blue-50 rounded-md mb-6">
           <div className="flex items-center">
             <div className="spinner mr-3" />
@@ -283,106 +283,106 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
               <p className="text-xs text-gray-500 mt-1">{doc.progress?.message}</p>
             </div>
           </div>
-        </div>
-      );
-    }
-    
+      </div>
+    );
+  }
+
     if (doc.status === 'pending') {
       const currentDocType = docTypes.find(docType => docType.id === doc.type);
       const hasRequiredQuestions = !!currentDocType?.requiredInfo?.questions?.length;
-      
-      return (
+
+  return (
         <div className="bg-white rounded-lg shadow-sm">
           <div className="p-6 sm:p-8">
             {hasRequiredQuestions ? (
-              <div className="mb-6">
+                  <div className="mb-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Additional Information Needed</h2>
-                <form onSubmit={(e) => {
-                  e.preventDefault();
+                    <form onSubmit={(e) => {
+                      e.preventDefault();
                   const formData = new FormData(e.target as HTMLFormElement);
-                  const answers: Record<string, string> = {};
-                  formData.forEach((value, key) => {
-                    answers[key] = typeof value === 'string' ? value : '';
-                  });
-                  handleRequiredInfoSubmit(answers);
-                }} className="space-y-6 sm:space-y-8">
+                      const answers: Record<string, string> = {};
+                      formData.forEach((value, key) => {
+                        answers[key] = typeof value === 'string' ? value : '';
+                      });
+                      handleRequiredInfoSubmit(answers);
+                    }} className="space-y-6 sm:space-y-8">
                   {docTypes.find(docType => docType.id === doc.type)?.requiredInfo?.questions?.map((q: any) => (
-                    <div key={q.id} className="space-y-2">
-                      <label className="block text-lg font-medium text-gray-900">
-                        {q.question}
-                      </label>
-                      {q.type === 'multi-select' ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div key={q.id} className="space-y-2">
+                          <label className="block text-lg font-medium text-gray-900">
+                            {q.question}
+                          </label>
+                          {q.type === 'multi-select' ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                           {q.options?.map((opt: string) => (
-                            <label
-                              key={opt}
-                              className="relative flex items-start py-3 px-4 border rounded-lg cursor-pointer hover:bg-blue-50 transition-colors"
+                                <label
+                                  key={opt}
+                                  className="relative flex items-start py-3 px-4 border rounded-lg cursor-pointer hover:bg-blue-50 transition-colors"
+                                >
+                                  <div className="min-w-0 flex-1 text-sm">
+                                    <div className="font-medium text-gray-700">
+                                      {opt}
+                                    </div>
+                                  </div>
+                                  <div className="ml-3 flex items-center h-5">
+                                    <input
+                                      type="checkbox"
+                                      name={q.id}
+                                      value={opt}
+                                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                  </div>
+                                </label>
+                              ))}
+                            </div>
+                          ) : q.type === 'select' ? (
+                            <select
+                              name={q.id}
+                              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                             >
-                              <div className="min-w-0 flex-1 text-sm">
-                                <div className="font-medium text-gray-700">
-                                  {opt}
-                                </div>
-                              </div>
-                              <div className="ml-3 flex items-center h-5">
-                                <input
-                                  type="checkbox"
-                                  name={q.id}
-                                  value={opt}
-                                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                />
-                              </div>
-                            </label>
-                          ))}
-                        </div>
-                      ) : q.type === 'select' ? (
-                        <select
-                          name={q.id}
-                          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                        >
-                          <option value="">Select an option</option>
+                              <option value="">Select an option</option>
                           {q.options?.map((opt: string) => (
-                            <option key={opt} value={opt}>{opt}</option>
-                          ))}
-                        </select>
-                      ) : q.type === 'color' ? (
-                        <div className="flex gap-3 items-center mt-1">
-                          <input
-                            type="color"
-                            name={q.id}
-                            className="h-10 w-20 p-1 rounded border border-gray-300"
-                          />
-                          <input
-                            type="text"
-                            name={`${q.id}_hex`}
-                            className="flex-1 block w-full px-3 py-2 sm:text-sm border-gray-300 rounded-md"
-                            placeholder="#000000"
-                            pattern="^#[0-9A-Fa-f]{6}$"
-                          />
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          ) : q.type === 'color' ? (
+                            <div className="flex gap-3 items-center mt-1">
+                              <input
+                                type="color"
+                                name={q.id}
+                                className="h-10 w-20 p-1 rounded border border-gray-300"
+                              />
+                              <input
+                                type="text"
+                                name={`${q.id}_hex`}
+                                className="flex-1 block w-full px-3 py-2 sm:text-sm border-gray-300 rounded-md"
+                                placeholder="#000000"
+                                pattern="^#[0-9A-Fa-f]{6}$"
+                              />
+                            </div>
+                          ) : (
+                            <input
+                              type="text"
+                              name={q.id}
+                              className="mt-1 block w-full h-16 px-6 text-lg border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-all duration-200"
+                              placeholder={q.placeholder}
+                            />
+                          )}
                         </div>
-                      ) : (
-                        <input
-                          type="text"
-                          name={q.id}
-                          className="mt-1 block w-full h-16 px-6 text-lg border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-all duration-200"
-                          placeholder={q.placeholder}
-                        />
-                      )}
-                    </div>
-                  ))}
-                  <div className="flex gap-3">
-                    <Button type="submit" className="flex-1">
-                      <Wand2 className="h-4 w-4 mr-2" />
-                      Generate with Details
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleSkipRequiredInfo}
-                      className="flex-1"
-                    >
-                      Skip & Generate
-                    </Button>
-                  </div>
+                      ))}
+                      <div className="flex gap-3">
+                        <Button type="submit" className="flex-1">
+                          <Wand2 className="h-4 w-4 mr-2" />
+                          Generate with Details
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleSkipRequiredInfo}
+                          className="flex-1"
+                        >
+                          Skip & Generate
+                        </Button>
+                      </div>
                 </form>
               </div>
             ) : (
@@ -690,7 +690,7 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
                   documentType={activeDocument.type}
                   previewPercentage={getPreviewPercentage(activeDocument.type)}
                 />
-              </div>
+                </div>
             )}
           </div>
         </div>
