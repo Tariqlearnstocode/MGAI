@@ -31,25 +31,25 @@ export default function DocumentSidebar({ documents, selectedDoc, onDocumentSele
   }, []);
 
   return (
-    <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-screen">
-      <div className="p-4 border-b border-gray-200">
+    <div className="w-full md:w-80 bg-white border-r border-gray-200 flex flex-col h-screen">
+      <div className="p-3 sm:p-4 border-b border-gray-200">
         <button
           onClick={onBack}
           className="flex items-center text-gray-600 hover:text-gray-900"
         >
-          <ArrowLeft className="h-5 w-5 mr-2" />
-          Back to Projects
+          <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
+          <span className="text-sm sm:text-base">Back to Projects</span>
         </button>
       </div>
       <div className="flex-1 overflow-y-auto min-h-0">
-        <div className="p-4">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Steps</h2>
+        <div className="p-3 sm:p-4">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Steps</h2>
           {isLoading ? (
             <div className="flex items-center justify-center h-40">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              <div className="animate-spin rounded-full h-5 w-5 sm:h-6 sm:w-6 border-b-2 border-blue-600"></div>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1 sm:space-y-2">
               {documentTypes
                 .sort((a, b) => a.documentOrder - b.documentOrder)
                 .map((doc) => (
@@ -57,8 +57,8 @@ export default function DocumentSidebar({ documents, selectedDoc, onDocumentSele
                     key={doc.id}
                     onClick={() => onDocumentSelect(doc.id)}
                     className={cn(
-                      "w-full flex items-center p-3 rounded-lg text-left relative",
-                      "before:absolute before:left-[26px] before:top-[48px] before:bottom-0 before:w-[2px]",
+                      "w-full flex items-center p-2 sm:p-3 rounded-lg text-left relative",
+                      "before:absolute before:left-[24px] sm:before:left-[26px] before:top-[44px] sm:before:top-[48px] before:bottom-0 before:w-[2px]",
                       selectedDoc === doc.id
                         ? 'bg-blue-50 text-blue-600 before:bg-blue-200'
                         : 'text-gray-700 hover:bg-gray-50 before:bg-gray-200',
@@ -67,7 +67,7 @@ export default function DocumentSidebar({ documents, selectedDoc, onDocumentSele
                   >
                     <div className="relative">
                       <div className={cn(
-                        "h-6 w-6 rounded-full flex items-center justify-center mr-3",
+                        "h-5 w-5 sm:h-6 sm:w-6 rounded-full flex items-center justify-center mr-2 sm:mr-3",
                         documents.find(d => d.type === doc.id)?.status === 'completed'
                           ? 'bg-green-100 text-green-600'
                           : documents.find(d => d.type === doc.id)?.status === 'generating'
@@ -101,8 +101,8 @@ export default function DocumentSidebar({ documents, selectedDoc, onDocumentSele
                       </div>
                     </div>
                     <div className="flex-1">
-                      <div>{doc.name}</div>
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm sm:text-base">{doc.name}</div>
+                      <div className="text-xs sm:text-sm text-gray-500">
                         {documents.find(d => d.type === doc.id)?.status === 'generating' ? (
                           <span className="text-blue-600">
                             {documents.find(d => d.type === doc.id)?.progress?.stage || 'Generating...'}

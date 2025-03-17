@@ -14,6 +14,21 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // Check if mobile
+  useState(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    
+    return () => {
+      window.removeEventListener('resize', checkScreenSize);
+    };
+  });
 
   const handleCheckout = async (productId: string) => {
     setLoading(productId);
