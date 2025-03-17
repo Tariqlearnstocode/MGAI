@@ -13,11 +13,11 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     rollupOptions: {
-      external: ['@react-pdf/renderer'],
+      external: ['@react-pdf/renderer', 'lucide-react'],
       output: {
         manualChunks: {
           'vendor': ['react', 'react-dom', 'react-router-dom'],
-          'ui': ['@headlessui/react', '@heroicons/react', 'lucide-react']
+          'ui': ['@headlessui/react', '@heroicons/react']
         }
       }
     }
