@@ -93,7 +93,7 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
           </div>
           <h3 className="text-xl font-bold mb-2">Preview Mode</h3>
           <p className="text-gray-600 mb-0 max-w-2xl mx-auto">
-            You've reached the end of the preview. Unlock the full document to access all content.
+            You've reached the end of the preview. Upgrade to get access to all content.
           </p>
         </div>
         
@@ -150,11 +150,8 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
               </div>
 
               {/* Complete Guide */}
-              <div className="border-2 border-blue-500 rounded-lg overflow-hidden bg-white shadow-md h-full">
-                <div className="p-5 bg-gradient-to-b from-blue-50 to-white relative h-full flex flex-col">
-                  <div className="absolute top-0 right-0 bg-blue-500 text-white text-xs font-bold py-0.5 px-2 rounded-bl-lg">
-                    BEST VALUE
-                  </div>
+              <div className="border rounded-lg overflow-hidden bg-white shadow-sm h-full">
+                <div className="p-5 bg-white h-full flex flex-col">
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <h3 className="text-lg font-semibold">Complete Guide</h3>
@@ -174,7 +171,7 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
                     ))}
                   </ul>
                   <Button
-                    className="w-full text-sm py-2 px-2 bg-blue-600 hover:bg-blue-700 font-medium"
+                    className="w-full text-sm py-2 px-2 font-medium"
                     onClick={() => handleCheckout('complete_guide')}
                     disabled={loading !== null}
                     size="sm"
@@ -185,8 +182,11 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
               </div>
 
               {/* Agency Pack */}
-              <div className="border rounded-lg overflow-hidden bg-white shadow-sm h-full">
-                <div className="p-5 bg-white h-full flex flex-col">
+              <div className="border-2 border-blue-500 rounded-lg overflow-hidden bg-white shadow-md h-full">
+                <div className="p-5 bg-gradient-to-b from-blue-50 to-white relative h-full flex flex-col">
+                  <div className="absolute top-0 right-0 bg-blue-500 text-white text-xs font-bold py-0.5 px-2 rounded-bl-lg">
+                    BEST VALUE
+                  </div>
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <h3 className="text-lg font-semibold">Complete Guide Bundle</h3>
@@ -208,7 +208,7 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
                   </ul>
                   <div className="space-y-2">
                     <Button
-                      className="w-full text-sm py-2 px-2 font-medium"
+                      className="w-full text-sm py-2 px-2 bg-blue-600 hover:bg-blue-700 font-medium"
                       onClick={() => handleCheckout('agency_pack')}
                       disabled={loading !== null}
                       size="sm"
