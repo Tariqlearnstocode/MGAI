@@ -12,7 +12,6 @@ interface DocumentSidebarProps {
 }
 
 export default function DocumentSidebar({ documents, selectedDoc, onDocumentSelect, onBack }: DocumentSidebarProps) {
-  const [searchQuery, setSearchQuery] = useState('');
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -20,7 +19,6 @@ export default function DocumentSidebar({ documents, selectedDoc, onDocumentSele
     const fetchDocumentTypes = async () => {
       try {
         const types = await getLatestDocumentTypes();
-        console.log('Document types loaded in sidebar:', types.length);
         setDocumentTypes(types);
       } catch (error) {
         console.error('Error fetching document types:', error);
@@ -31,9 +29,6 @@ export default function DocumentSidebar({ documents, selectedDoc, onDocumentSele
     
     fetchDocumentTypes();
   }, []);
-
-  // Get the list of document types that are completed or in progress
-  const existingDocs = documents.map(doc => doc.type);
 
   return (
     <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-screen">

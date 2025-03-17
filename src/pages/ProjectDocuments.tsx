@@ -12,7 +12,6 @@ export default function ProjectDocuments() {
   const { id } = useParams<{ id: string }>();
   const [selectedDoc, setSelectedDoc] = useState('marketing_plan');
   const [project, setProject] = useState<Project & { documents: Document[] } | null>(null);
-  const [loading, setLoading] = useState(true);
   const [autoGeneratingMarketing, setAutoGeneratingMarketing] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -148,8 +147,6 @@ export default function ProjectDocuments() {
         setProject(data);
       } catch (error) {
         console.error('Failed to load project:', error);
-      } finally {
-        setLoading(false);
       }
     }
 

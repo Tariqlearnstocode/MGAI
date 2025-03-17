@@ -9,6 +9,8 @@ import { generateDocumentWithAI, updateDocumentProgress } from '@/lib/openai';
 import type { Document, Project } from '@/lib/projects';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
+import { usePayment } from '@/contexts/PaymentContext';
+import PreviewOverlay from './PreviewOverlay';
 
 interface SingleDocumentViewerProps {
   documentId: string;
@@ -22,7 +24,11 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
   const [initialDocument, setInitialDocument] = useState<Document | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [docTypes, setDocTypes] = useState<DocumentType[]>([]);
-
+  
+  // Payment context for access control
+  const { checkDocumentAccess, getPreviewPercentage } = usePayment();
+  const [hasFullAccess, setHasFullAccess] = useState(false);
+  
   // Subscribe to real-time updates
   const { document: liveDocument, error: subscriptionError } = useDocumentSubscription(documentId);
 
@@ -34,6 +40,13 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
         const doc = await getDocument(documentId);
         console.log('Document fetched:', doc);
         setInitialDocument(doc);
+        
+        // Force paywall to show for all documents
+        setHasFullAccess(false);
+        
+        // Log the document order-based preview percentage
+        console.log('Paywall forced: hasFullAccess set to false, previewPercentage:', 
+          getPreviewPercentage(doc.type));
       } catch (err) {
         console.error('Error fetching document:', err);
         setError(err instanceof Error ? err.message : 'Failed to load document');
@@ -42,7 +55,7 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
       }
     }
     fetchDocument();
-  }, [documentId]);
+  }, [documentId, checkDocumentAccess, getPreviewPercentage]);
 
   useEffect(() => {
     const fetchDocumentTypes = async () => {
@@ -67,6 +80,16 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
     console.log('Document types:', docTypes);
   }, [activeDocument, docTypes]);
 
+  // Debug logging for paywall
+  const logPaywallDebug = (doc: Document) => {
+    console.log('Paywall Debug:', { 
+      hasFullAccess, 
+      previewPercentage: getPreviewPercentage(doc.type),
+      showPaywall: !hasFullAccess,
+      documentStatus: doc.status
+    });
+  };
+
   const handleRequiredInfoSubmit = async (answers: Record<string, string>) => {
     if (!activeDocument) return;
     
@@ -74,7 +97,9 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
       await updateDocument(activeDocument.id, {
         content: {
           ...activeDocument.content,
-          required_info: { answers }
+          required_info: { 
+            answers 
+          } as any // Use type assertion to avoid type errors
         }
       });
       
@@ -97,7 +122,7 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
           required_info: { 
             answers: {}, 
             skipped: true 
-          }
+          } as any // Use type assertion to avoid type errors
         }
       });
       
@@ -225,6 +250,194 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
     const filename = `${projectName.toLowerCase().replace(/\s+/g, '-')}-${activeDocument.type}`;
     await downloadDocument(activeDocument.content.sections, format, filename);
     setShowDownloadMenu(false);
+  };
+
+  // Add a function to render document content
+  const renderDocumentContent = (doc: Document) => {
+    if (doc.status === 'generating') {
+      return (
+        <div className="p-4 bg-blue-50 rounded-md mb-6">
+          <div className="flex items-center">
+            <div className="spinner mr-3" />
+            <div>
+              <h3 className="font-medium">Generating document...</h3>
+              <p className="text-sm text-gray-600">
+                {doc.progress?.stage || 'Starting generation...'}
+                {doc.progress?.percent !== undefined && ` (${doc.progress.percent}%)`}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">{doc.progress?.message}</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    if (doc.status === 'pending') {
+      const currentDocType = docTypes.find(docType => docType.id === doc.type);
+      const hasRequiredQuestions = !!currentDocType?.requiredInfo?.questions?.length;
+      
+      return (
+        <div className="bg-white rounded-lg shadow-sm">
+          <div className="p-6 sm:p-8">
+            {hasRequiredQuestions ? (
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Additional Information Needed</h2>
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.target as HTMLFormElement);
+                  const answers: Record<string, string> = {};
+                  formData.forEach((value, key) => {
+                    answers[key] = typeof value === 'string' ? value : '';
+                  });
+                  handleRequiredInfoSubmit(answers);
+                }} className="space-y-6 sm:space-y-8">
+                  {docTypes.find(docType => docType.id === doc.type)?.requiredInfo?.questions?.map((q: any) => (
+                    <div key={q.id} className="space-y-2">
+                      <label className="block text-lg font-medium text-gray-900">
+                        {q.question}
+                      </label>
+                      {q.type === 'multi-select' ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {q.options?.map((opt: string) => (
+                            <label
+                              key={opt}
+                              className="relative flex items-start py-3 px-4 border rounded-lg cursor-pointer hover:bg-blue-50 transition-colors"
+                            >
+                              <div className="min-w-0 flex-1 text-sm">
+                                <div className="font-medium text-gray-700">
+                                  {opt}
+                                </div>
+                              </div>
+                              <div className="ml-3 flex items-center h-5">
+                                <input
+                                  type="checkbox"
+                                  name={q.id}
+                                  value={opt}
+                                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      ) : q.type === 'select' ? (
+                        <select
+                          name={q.id}
+                          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                        >
+                          <option value="">Select an option</option>
+                          {q.options?.map((opt: string) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      ) : q.type === 'color' ? (
+                        <div className="flex gap-3 items-center mt-1">
+                          <input
+                            type="color"
+                            name={q.id}
+                            className="h-10 w-20 p-1 rounded border border-gray-300"
+                          />
+                          <input
+                            type="text"
+                            name={`${q.id}_hex`}
+                            className="flex-1 block w-full px-3 py-2 sm:text-sm border-gray-300 rounded-md"
+                            placeholder="#000000"
+                            pattern="^#[0-9A-Fa-f]{6}$"
+                          />
+                        </div>
+                      ) : (
+                        <input
+                          type="text"
+                          name={q.id}
+                          className="mt-1 block w-full h-16 px-6 text-lg border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-all duration-200"
+                          placeholder={q.placeholder}
+                        />
+                      )}
+                    </div>
+                  ))}
+                  <div className="flex gap-3">
+                    <Button type="submit" className="flex-1">
+                      <Wand2 className="h-4 w-4 mr-2" />
+                      Generate with Details
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleSkipRequiredInfo}
+                      className="flex-1"
+                    >
+                      Skip & Generate
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              <div className="max-w-md mx-auto flex flex-col items-center">
+                <div className="mb-6 text-center">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-3">Ready to Generate</h3>
+                  <p className="text-base text-gray-600">
+                    Click the button below to generate your {docTypes.find(docType => docType.id === doc.type)?.name}.
+                  </p>
+                </div>
+                <Button 
+                  onClick={handleRegenerate}
+                  className="bg-blue-500 hover:bg-blue-600 px-8"
+                  disabled={isGenerating}
+                >
+                  <Wand2 className="h-4 w-4 mr-2" />
+                  Generate Document
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+    
+    // For completed documents, render the content
+    return (
+      <div className="relative">
+        {doc.content?.sections?.map((section, index) => (
+          <div key={index} className="mb-6 sm:mb-8">
+            <div className="markdown-content">
+              <ReactMarkdown 
+                rehypePlugins={[rehypeSanitize]}
+                components={{
+                  h1: ({node, ...props}) => <h1 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4" {...props} />,
+                  h2: ({node, ...props}) => <h2 className="text-xl sm:text-2xl font-bold mb-2 sm:mb-3" {...props} />,
+                  p: ({ node, ...props }) => {
+                    // Safely check if first child starts with section title
+                    const firstChild = Array.isArray(props.children) && props.children.length > 0 
+                      ? props.children[0] 
+                      : props.children;
+                    
+                    const firstChildText = typeof firstChild === 'string' ? firstChild : '';
+                    const isFirstParagraph = index === 0 && firstChildText.startsWith(section.title);
+                    
+                    return <p className={isFirstParagraph ? 'lead text-base sm:text-lg' : 'text-sm sm:text-base'} {...props} />;
+                  },
+                  ul: ({node, ...props}) => <ul className="text-sm sm:text-base list-disc pl-5 sm:pl-8 mb-4" {...props} />,
+                  ol: ({node, ...props}) => <ol className="text-sm sm:text-base list-decimal pl-5 sm:pl-8 mb-4" {...props} />,
+                  blockquote: ({node, ...props}) => <blockquote className="pl-4 border-l-4 border-gray-200 italic mb-4" {...props} />
+                }}
+              >
+                {section.content.endsWith('|') 
+                  ? section.content.slice(0, -1) 
+                  : section.content}
+              </ReactMarkdown>
+            </div>
+          </div>
+        ))}
+        
+        {/* Add the PreviewOverlay directly here for completed documents */}
+        {!hasFullAccess && (
+          <PreviewOverlay 
+            projectId={doc.project_id}
+            documentType={doc.type}
+            previewPercentage={getPreviewPercentage(doc.type)}
+          />
+        )}
+      </div>
+    );
   };
 
   if (isLoading) {
@@ -356,7 +569,7 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
       </header>
 
       <main className="flex-1 overflow-y-auto bg-white m-2 sm:m-6 rounded-lg shadow min-h-0">
-        <div className="p-4 sm:p-8">
+        <div className="p-4 sm:p-8 max-h-[calc(100vh-200px)] overflow-y-auto">
           <div className="prose max-w-none">
             {error || subscriptionError ? (
               <div className="text-center py-8 sm:py-12">
@@ -396,97 +609,7 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
               <div className="text-center py-8 sm:py-12">
                 {docTypes.find(doc => doc.id === activeDocument?.type)?.requiredInfo ? (
                   <div className="max-w-lg mx-auto mt-4 sm:mt-8 px-2 sm:px-0">
-                    <form onSubmit={(e) => {
-                      e.preventDefault();
-                      const formData = new FormData(e.currentTarget);
-                      // Convert FormDataEntryValue to string explicitly
-                      const answers: Record<string, string> = {};
-                      formData.forEach((value, key) => {
-                        answers[key] = typeof value === 'string' ? value : '';
-                      });
-                      handleRequiredInfoSubmit(answers);
-                    }} className="space-y-6 sm:space-y-8">
-                      {docTypes.find(doc => doc.id === activeDocument?.type)?.requiredInfo?.questions?.map((q) => (
-                        <div key={q.id} className="space-y-2">
-                          <label className="block text-lg font-medium text-gray-900">
-                            {q.question}
-                          </label>
-                          {q.type === 'multi-select' ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                              {q.options?.map((opt) => (
-                                <label
-                                  key={opt}
-                                  className="relative flex items-start py-3 px-4 border rounded-lg cursor-pointer hover:bg-blue-50 transition-colors"
-                                >
-                                  <div className="min-w-0 flex-1 text-sm">
-                                    <div className="font-medium text-gray-700">
-                                      {opt}
-                                    </div>
-                                  </div>
-                                  <div className="ml-3 flex items-center h-5">
-                                    <input
-                                      type="checkbox"
-                                      name={q.id}
-                                      value={opt}
-                                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                    />
-                                  </div>
-                                </label>
-                              ))}
-                            </div>
-                          ) : q.type === 'select' ? (
-                            <select
-                              name={q.id}
-                              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                            >
-                              <option value="">Select an option</option>
-                              {q.options?.map((opt) => (
-                                <option key={opt} value={opt}>{opt}</option>
-                              ))}
-                            </select>
-                          ) : q.type === 'color' ? (
-                            <div className="flex gap-3 items-center mt-1">
-                              <input
-                                type="color"
-                                name={q.id}
-                                className="h-10 w-20 p-1 rounded border border-gray-300"
-                              />
-                              <input
-                                type="text"
-                                name={`${q.id}_hex`}
-                                className="flex-1 block w-full px-3 py-2 sm:text-sm border-gray-300 rounded-md"
-                                placeholder="#000000"
-                                pattern="^#[0-9A-Fa-f]{6}$"
-                              />
-                            </div>
-                          ) : (
-                            <input
-                              type="text"
-                              name={q.id}
-                              className="mt-1 block w-full h-16 px-6 text-lg border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-all duration-200"
-                              placeholder={q.placeholder}
-                            />
-                          )}
-                        </div>
-                      ))}
-                      <div className="flex gap-3">
-                        <Button type="submit" className="flex-1">
-                          <Wand2 className="h-4 w-4 mr-2" />
-                          Generate with Details
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={handleSkipRequiredInfo}
-                          className="flex-1"
-                        >
-                          Skip & Generate
-                        </Button>
-                      </div>
-                      <p className="text-sm text-gray-500 mt-3 text-center">
-                        If you skip, the AI will make assumptions based on your project information.
-                      </p>
-                    </form>
+                    {renderDocumentContent(activeDocument)}
                   </div>
                 ) : (
                   <div className="max-w-md mx-auto flex flex-col items-center">
@@ -508,37 +631,17 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
                 )}
               </div>
             ) : (
-              activeDocument.content.sections.map((section, index) => (
-                <div key={index} className="mb-6 sm:mb-8">
-                  <div className="markdown-content">
-                    <ReactMarkdown 
-                      rehypePlugins={[rehypeSanitize]}
-                      components={{
-                        h1: ({node, ...props}) => <h1 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4" {...props} />,
-                        h2: ({node, ...props}) => <h2 className="text-xl sm:text-2xl font-bold mb-2 sm:mb-3" {...props} />,
-                        p: ({ node, ...props }) => {
-                          // Safely check if first child starts with section title
-                          const firstChild = Array.isArray(props.children) && props.children.length > 0 
-                            ? props.children[0] 
-                            : props.children;
-                          
-                          const firstChildText = typeof firstChild === 'string' ? firstChild : '';
-                          const isFirstParagraph = index === 0 && firstChildText.startsWith(section.title);
-                          
-                          return <p className={isFirstParagraph ? 'lead text-base sm:text-lg' : 'text-sm sm:text-base'} {...props} />;
-                        },
-                        ul: ({node, ...props}) => <ul className="text-sm sm:text-base list-disc pl-5 sm:pl-8 mb-4" {...props} />,
-                        ol: ({node, ...props}) => <ol className="text-sm sm:text-base list-decimal pl-5 sm:pl-8 mb-4" {...props} />,
-                        blockquote: ({node, ...props}) => <blockquote className="pl-4 border-l-4 border-gray-200 italic mb-4" {...props} />
-                      }}
-                    >
-                      {section.content.endsWith('|') 
-                        ? section.content.slice(0, -1) 
-                        : section.content}
-                    </ReactMarkdown>
-                  </div>
-                </div>
-              ))
+              <div className="relative min-h-[500px]">
+                {(() => {
+                  if (activeDocument) logPaywallDebug(activeDocument);
+                  return renderDocumentContent(activeDocument);
+                })()}
+                <PreviewOverlay 
+                  projectId={activeDocument.project_id}
+                  documentType={activeDocument.type}
+                  previewPercentage={getPreviewPercentage(activeDocument.type)}
+                />
+              </div>
             )}
           </div>
         </div>

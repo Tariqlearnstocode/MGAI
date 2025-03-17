@@ -1,0 +1,215 @@
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from './AuthContext';
+import { initiateCheckout as apiInitiateCheckout, getUserPurchases, applyAgencyPackToProject as apiApplyPack } from '@/lib/api';
+import { DocumentType, getLatestDocumentTypes } from '@/lib/documents';
+
+// Define the Purchase type to match our database schema
+export interface Purchase {
+  id: string;
+  user_id: string;
+  product_id: 'single_plan' | 'complete_guide' | 'agency_pack';
+  status: 'active' | 'cancelled';
+  purchase_date: string;
+  expires_at?: string;
+  remaining_uses?: number;
+  used_for_projects?: string[];
+  stripe_transaction_id: string;
+  stripe_price_id: string;
+}
+
+// Define available products and their details
+export interface Product {
+  id: 'single_plan' | 'complete_guide' | 'agency_pack';
+  name: string;
+  price: number;
+  description: string;
+  features: string[];
+  stripe_price_id: string;
+}
+
+interface PaymentContextType {
+  purchases: Purchase[];
+  loadingPurchases: boolean;
+  products: Product[];
+  loadingProducts: boolean;
+  docTypes: DocumentType[];
+  loadingDocTypes: boolean;
+  checkDocumentAccess: (documentType: string, projectId: string) => boolean;
+  getPreviewPercentage: (documentType: string) => number;
+  initiateCheckout: (productId: string, projectId?: string) => Promise<void>;
+  applyAgencyPackToProject: (projectId: string) => Promise<boolean>;
+  refreshPurchases: () => Promise<void>;
+}
+
+const PaymentContext = createContext<PaymentContextType | undefined>(undefined);
+
+export const PaymentProvider = ({ children }: { children: ReactNode }) => {
+  const { user } = useAuth();
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [loadingPurchases, setLoadingPurchases] = useState(true);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [docTypes, setDocTypes] = useState<DocumentType[]>([]);
+  const [loadingDocTypes, setLoadingDocTypes] = useState(true);
+
+  // Load user's purchases and document types
+  useEffect(() => {
+    if (user) {
+      fetchPurchases();
+      fetchProducts();
+      fetchDocumentTypes();
+    } else {
+      setPurchases([]);
+      setLoadingPurchases(false);
+    }
+  }, [user]);
+
+  // Fetch document types
+  const fetchDocumentTypes = async () => {
+    setLoadingDocTypes(true);
+    try {
+      const documentTypes = await getLatestDocumentTypes();
+      setDocTypes(documentTypes);
+    } catch (error) {
+      console.error('Error fetching document types:', error);
+    } finally {
+      setLoadingDocTypes(false);
+    }
+  };
+
+  // Fetch user's purchases from the database
+  const fetchPurchases = async () => {
+    if (!user) return;
+    
+    setLoadingPurchases(true);
+    try {
+      const data = await getUserPurchases(user.id);
+      setPurchases(data);
+    } catch (error) {
+      console.error('Error fetching purchases:', error);
+    } finally {
+      setLoadingPurchases(false);
+    }
+  };
+  
+  // Fetch available products
+  const fetchProducts = async () => {
+    setLoadingProducts(true);
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*');
+        
+      if (error) throw error;
+      
+      setProducts(data || []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+  
+  // Check if user has access to a specific document in a project
+  const checkDocumentAccess = (): boolean => {
+    // Always return false to make paywall show for all documents
+    return false;
+  };
+  
+  // Get the percentage of a document that should be visible in preview mode
+  const getPreviewPercentage = (documentType: string): number => {
+    // Get document type from loaded document types
+    const docType = docTypes.find((dt: DocumentType) => dt.id === documentType);
+    
+    // Document with order 1 gets 10% preview, all others get 30%
+    // This is where we can change the preview percentage for each document. 
+    // x ? y: z = x is document_order, y is preview percentage for x. z is default preview percentage for all other docuements.
+    // Currently docuemnt 1 is set to 10% preview and all other documents are set to 0% preview.
+    if (docType) {
+      return docType.documentOrder === 1 ? 15 : 10;
+    }
+    
+    // If document type can't be found, default to 0% (no preview) 
+    console.warn(`Document type ${documentType} not found, defaulting to 0% preview`);
+    return 0;
+  };
+  
+  // Initialize a Stripe checkout session
+  const initiateCheckout = async (productId: string, projectId?: string) => {
+    if (!user) throw new Error('User must be logged in to checkout');
+    
+    try {
+      // Get the product to find its Stripe price ID
+      const product = products.find(p => p.id === productId);
+      if (!product) throw new Error('Invalid product');
+      
+      // Create a checkout session using our API
+      const { url } = await apiInitiateCheckout({
+        priceId: product.stripe_price_id,
+        productId,
+        projectId,
+        userId: user.id
+      });
+      
+      // Redirect to Stripe checkout
+      window.location.href = url;
+    } catch (error) {
+      console.error('Error initiating checkout:', error);
+      throw error;
+    }
+  };
+  
+  // Apply an agency pack (10-pack) to a specific project
+  const applyAgencyPackToProject = async (projectId: string): Promise<boolean> => {
+    if (!user) return false;
+    
+    try {
+      const success = await apiApplyPack(user.id, projectId);
+      
+      if (success) {
+        // Refresh purchases after update
+        await fetchPurchases();
+      }
+      
+      return success;
+    } catch (error) {
+      console.error('Error applying agency pack:', error);
+      return false;
+    }
+  };
+  
+  // Function to manually refresh purchases (useful after successful purchase)
+  const refreshPurchases = async () => {
+    await fetchPurchases();
+  };
+  
+  return (
+    <PaymentContext.Provider
+      value={{
+        purchases,
+        loadingPurchases,
+        products,
+        loadingProducts,
+        docTypes,
+        loadingDocTypes,
+        checkDocumentAccess,
+        getPreviewPercentage,
+        initiateCheckout,
+        applyAgencyPackToProject,
+        refreshPurchases,
+      }}
+    >
+      {children}
+    </PaymentContext.Provider>
+  );
+};
+
+// Hook to use the payment context
+export const usePayment = () => {
+  const context = useContext(PaymentContext);
+  if (context === undefined) {
+    throw new Error('usePayment must be used within a PaymentProvider');
+  }
+  return context;
+}; 
