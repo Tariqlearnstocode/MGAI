@@ -13,7 +13,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     rollupOptions: {
-      external: ['@react-pdf/renderer', 'lucide-react'],
+      external: ['@react-pdf/renderer', 'lucide-react', 'class-variance-authority'],
       output: {
         manualChunks: {
           'vendor': ['react', 'react-dom', 'react-router-dom'],
