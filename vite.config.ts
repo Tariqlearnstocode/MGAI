@@ -12,14 +12,52 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    target: 'es2015',
+    sourcemap: false,
+    minify: 'terser',
+    cssMinify: true,
     rollupOptions: {
-      external: ['@react-pdf/renderer', 'lucide-react', 'class-variance-authority'],
+      external: [
+        '@react-pdf/renderer',
+        'docx',
+        'file-saver',
+        'lucide-react',
+        '@heroicons/react',
+        'class-variance-authority',
+        'clsx',
+        'tailwind-merge',
+        'openai',
+        '@supabase/supabase-js',
+        'stripe',
+        'react-markdown',
+        'rehype-sanitize',
+        'rehype-stringify',
+        'remark-parse',
+        'remark-rehype'
+      ],
       output: {
         manualChunks: {
           'vendor': ['react', 'react-dom', 'react-router-dom'],
-          'ui': ['@headlessui/react', '@heroicons/react']
-        }
+          'ui': ['@headlessui/react'],
+          'supabase': ['@supabase/auth-helpers-react', '@supabase/auth-ui-react', '@supabase/auth-ui-shared']
+        },
+        chunkFileNames: 'assets/js/[name]-[hash].js',
+        entryFileNames: 'assets/js/[name]-[hash].js',
+        assetFileNames: 'assets/[ext]/[name]-[hash].[ext]'
       }
+    },
+    commonjsOptions: {
+      transformMixedEsModules: true,
+      include: [/node_modules/]
     }
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      target: 'es2020',
+      supported: { bigint: true }
+    }
+  },
+  ssr: {
+    noExternal: ['react', 'react-dom', 'react-router-dom']
   }
 });
