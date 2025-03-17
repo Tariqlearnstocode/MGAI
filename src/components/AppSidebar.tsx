@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,7 +14,6 @@ import {
   HelpCircle,
   Crown,
   BookOpen,
-  Lightbulb,
   Briefcase,
   FileText,
   LogOut,
@@ -26,11 +25,13 @@ const navigation = [
     name: 'Dashboard',
     href: '/app',
     icon: LayoutDashboard,
+    badge: undefined,
   },
   {
     name: 'New Project',
     href: '/app/new-project',
     icon: PlusCircle,
+    badge: undefined,
   },
 ];
 
@@ -168,9 +169,29 @@ function NavItem({ children, href, icon: Icon, badge, collapsed }: NavItemProps)
 
 export default function AppSidebar() {
   const navigate = useNavigate();
-  const { signOut, user } = useAuth();
+  const { signOut } = useAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
+
+  useEffect(() => {
+    const checkScreenSize = () => {
+      const isMobile = window.innerWidth < 768;
+      // On mobile, always collapse
+      // On desktop, match user's preference or default to expanded
+      setCollapsed(isMobile);
+    };
+    
+    // Check on initial load
+    checkScreenSize();
+    
+    // Add resize listener
+    window.addEventListener('resize', checkScreenSize);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('resize', checkScreenSize);
+    };
+  }, []);
 
   const handleSignOut = async () => {
     try {
