@@ -9,5 +9,17 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src")
     }
+  },
+  build: {
+    outDir: 'dist',
+    rollupOptions: {
+      external: ['@react-pdf/renderer'],
+      output: {
+        manualChunks: {
+          'vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui': ['@headlessui/react', '@heroicons/react', 'lucide-react']
+        }
+      }
+    }
   }
 });
