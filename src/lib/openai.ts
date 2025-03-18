@@ -457,44 +457,88 @@ export async function expandDocument(document: any) {
 }
 
 /**
- * Call the server-side API for OpenAI content generation
+ * Call the API for OpenAI content generation with graceful fallback between environments
  */
 export async function callOpenAI(prompt: string, model = MODEL, max_tokens?: number): Promise<string> {
   try {
-    console.log(`Calling OpenAI API with max_tokens: ${max_tokens}`);
-    
-    // Use explicit URL with host and port for local development
-    const apiUrl = 'http://localhost:5001/api/generate-content';
-    
-    // Always use the server API endpoint - never expose keys in client
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt,
-        model,
-        max_tokens
-      }),
-    });
+    console.log(`Calling OpenAI with model: ${model}`);
 
-    if (!response.ok) {
-      console.error(`API returned status ${response.status}`);
-      let errorData = null;
+    // Determine which endpoint to use based on environment
+    const isLocalhost = window.location.hostname === 'localhost';
+    
+    // Define available API endpoints (order determines priority)
+    const apiEndpoints = [
+      // First try Vercel serverless function path (relative to the app's base URL)
+      '/api/generate-content',
+      
+      // Then try absolute URL to Vercel deployment (if in production)
+      !isLocalhost ? 'https://marketing-guide.vercel.app/api/generate-content' : null,
+      
+      // Fall back to local server when in development
+      isLocalhost ? 'http://localhost:5001/api/generate-content' : null
+    ].filter(Boolean) as string[];
+    
+    // Error to track failed attempts
+    let lastError: Error | null = null;
+    
+    // Try each endpoint until one works
+    for (const endpoint of apiEndpoints) {
       try {
-        errorData = await response.json();
-      } catch (e) {
-        console.error("Failed to parse error response");
+        console.log(`Trying API endpoint: ${endpoint}`);
+        
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            prompt,
+            model,
+            max_tokens
+          }),
+        });
+        
+        if (!response.ok) {
+          const status = response.status;
+          let errorData = null;
+          try {
+            errorData = await response.json();
+          } catch (e) {
+            // Ignore JSON parsing errors
+          }
+          
+          console.warn(`API error from ${endpoint}: ${status} - ${errorData?.error || response.statusText}`);
+          // Continue to the next endpoint instead of throwing
+          continue;
+        }
+        
+        const data = await response.json();
+        
+        // Validate response format
+        if (!data || !data.result) {
+          console.warn(`Invalid response format from ${endpoint}:`, data);
+          // Continue to the next endpoint
+          continue;
+        }
+        
+        // If we get here, we have a successful response
+        console.log(`Successfully generated content using: ${endpoint}`);
+        return data.result;
+      } catch (error: any) {
+        console.warn(`Error with endpoint ${endpoint}:`, error.message);
+        lastError = error;
+        // Continue to the next endpoint
       }
-      throw new Error(errorData?.error || `API request failed with status ${response.status}`);
     }
-
-    const data = await response.json();
-    console.log(`Got API response - token usage: ${JSON.stringify(data.usage)}`);
-    return data.result;
+    
+    // If we get here, all endpoints failed
+    if (lastError) {
+      throw lastError;
+    } else {
+      throw new Error('All API endpoints failed to generate content');
+    }
   } catch (error) {
-    console.error('Error calling OpenAI:', error);
+    console.error('Error calling OpenAI API:', error);
     throw error;
   }
 }
