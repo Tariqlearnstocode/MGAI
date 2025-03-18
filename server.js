@@ -80,9 +80,26 @@ app.post('/api/generate-content', async (req, res) => {
 // Stripe webhook endpoint (raw body for signature verification)
 app.use('/api/webhook/stripe', bodyParser.raw({ type: 'application/json' }));
 
+// Add a simple test endpoint for healthcheck
+app.get('/api/test', (req, res) => {
+  res.status(200).json({ status: 'ok', message: 'API is running' });
+});
+
 // Serve Vite app in production
 if (process.env.NODE_ENV === 'production') {
+  // Serve static files from the dist directory
   app.use(express.static('dist'));
+
+  // Handle SPA routing - serve index.html for any non-API routes
+  app.get('*', (req, res) => {
+    // Skip for API routes
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    
+    // For all other routes, serve the SPA's index.html
+    res.sendFile('dist/index.html', { root: '.' });
+  });
 }
 
 // Create Stripe checkout session

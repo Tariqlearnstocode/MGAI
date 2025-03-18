@@ -239,7 +239,7 @@ async function generateSectionContent(
       console.log(`Sending prompt with length ${fullPrompt.length} chars to API for section "${section}"`);
       
       // Call the server API endpoint instead of using OpenAI directly
-      const apiUrl = 'http://localhost:5001/api/generate-content'; 
+      const apiUrl = '/api/generate-content';
       
       console.log(`Using max_tokens: ${maxTokens} for section "${section}"`);
       const response = await fetch(apiUrl, {
@@ -463,8 +463,8 @@ export async function callOpenAI(prompt: string, model = MODEL, max_tokens?: num
   try {
     console.log(`Calling OpenAI API with max_tokens: ${max_tokens}`);
     
-    // Use explicit URL with host and port for local development
-    const apiUrl = 'http://localhost:5001/api/generate-content';
+    // Use relative URL that works in all environments
+    const apiUrl = '/api/generate-content';
     
     // Always use the server API endpoint - never expose keys in client
     const response = await fetch(apiUrl, {
