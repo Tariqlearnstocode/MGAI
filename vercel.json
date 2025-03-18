@@ -19,12 +19,6 @@
   ],
   "build": {
     "env": {
-      "VITE_SUPABASE_URL": "@vite_supabase_url",
-      "VITE_SUPABASE_ANON_KEY": "@vite_supabase_anon_key",
-      "OPENAI_API_KEY": "@openai_api_key",
-      "OPENAI_MODEL": "@openai_model",
-      "STRIPE_SECRET_KEY": "@stripe_secret_key",
-      "STRIPE_WEBHOOK_SECRET": "@stripe_webhook_secret",
       "ENABLE_FILE_SYSTEM_API": "1"
     }
   }

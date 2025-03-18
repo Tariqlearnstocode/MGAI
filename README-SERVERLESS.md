@@ -28,12 +28,21 @@ vercel link
 
 In the Vercel dashboard, add the following environment variables:
 
-- `VITE_SUPABASE_URL` - Your Supabase URL
-- `VITE_SUPABASE_ANON_KEY` - Your Supabase anonymous key
-- `OPENAI_API_KEY` - Your OpenAI API key
-- `OPENAI_MODEL` - The OpenAI model to use (e.g., 'gpt-4o-mini')
-- `STRIPE_SECRET_KEY` - Your Stripe secret key
-- `STRIPE_WEBHOOK_SECRET` - Your Stripe webhook secret
+1. Go to your project in the Vercel dashboard
+2. Navigate to **Settings** → **Environment Variables**
+3. Add the following variables:
+
+| Name | Value | Description |
+|------|-------|-------------|
+| `VITE_SUPABASE_URL` | `your-supabase-url` | Your Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | `your-supabase-anon-key` | Your Supabase anonymous key |
+| `OPENAI_API_KEY` | `your-openai-api-key` | Your OpenAI API key |
+| `OPENAI_MODEL` | `gpt-4o-mini` | The OpenAI model to use |
+| `STRIPE_SECRET_KEY` | `your-stripe-secret-key` | Your Stripe secret key |
+| `STRIPE_WEBHOOK_SECRET` | `your-stripe-webhook-secret` | Your Stripe webhook secret |
+
+4. Click **Save** to apply the environment variables
+5. Redeploy your application
 
 ### 4. Deploy to Vercel
 
