@@ -457,7 +457,7 @@ export async function expandDocument(document: any) {
 }
 
 /**
- * Call the API for OpenAI content generation with graceful fallback between environments
+ * Call the API for OpenAI content generation using only Vercel serverless functions
  */
 export async function callOpenAI(prompt: string, model = MODEL, max_tokens?: number): Promise<string> {
   try {
@@ -466,77 +466,48 @@ export async function callOpenAI(prompt: string, model = MODEL, max_tokens?: num
     // Determine which endpoint to use based on environment
     const isLocalhost = window.location.hostname === 'localhost';
     
-    // Define available API endpoints (order determines priority)
-    const apiEndpoints = [
-      // First try Vercel serverless function path (relative to the app's base URL)
-      '/api/generate-content',
-      
-      // Then try absolute URL to Vercel deployment (if in production)
-      !isLocalhost ? 'https://marketing-guide.vercel.app/api/generate-content' : null,
-      
-      // Fall back to local server when in development
-      isLocalhost ? 'http://localhost:5001/api/generate-content' : null
-    ].filter(Boolean) as string[];
+    // Always use the serverless function path (either relative or absolute)
+    const apiEndpoint = isLocalhost
+      ? '/api/generate-content'                                   // Use relative path for local dev
+      : 'https://marketing-guide.vercel.app/api/generate-content'; // Use absolute path for production
     
-    // Error to track failed attempts
-    let lastError: Error | null = null;
+    console.log(`Using API endpoint: ${apiEndpoint}`);
     
-    // Try each endpoint until one works
-    for (const endpoint of apiEndpoints) {
+    // Call the API endpoint
+    const response = await fetch(apiEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt,
+        model,
+        max_tokens
+      }),
+    });
+    
+    if (!response.ok) {
+      console.error(`API returned status ${response.status}`);
+      let errorData = null;
       try {
-        console.log(`Trying API endpoint: ${endpoint}`);
-        
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            prompt,
-            model,
-            max_tokens
-          }),
-        });
-        
-        if (!response.ok) {
-          const status = response.status;
-          let errorData = null;
-          try {
-            errorData = await response.json();
-          } catch (e) {
-            // Ignore JSON parsing errors
-          }
-          
-          console.warn(`API error from ${endpoint}: ${status} - ${errorData?.error || response.statusText}`);
-          // Continue to the next endpoint instead of throwing
-          continue;
-        }
-        
-        const data = await response.json();
-        
-        // Validate response format
-        if (!data || !data.result) {
-          console.warn(`Invalid response format from ${endpoint}:`, data);
-          // Continue to the next endpoint
-          continue;
-        }
-        
-        // If we get here, we have a successful response
-        console.log(`Successfully generated content using: ${endpoint}`);
-        return data.result;
-      } catch (error: any) {
-        console.warn(`Error with endpoint ${endpoint}:`, error.message);
-        lastError = error;
-        // Continue to the next endpoint
+        errorData = await response.json();
+      } catch (e) {
+        // Ignore JSON parsing errors
       }
+      
+      throw new Error(`API error: ${errorData?.error || response.statusText}`);
     }
     
-    // If we get here, all endpoints failed
-    if (lastError) {
-      throw lastError;
-    } else {
-      throw new Error('All API endpoints failed to generate content');
+    const data = await response.json();
+    
+    // Validate response format
+    if (!data || !data.result) {
+      console.warn('API returned invalid data format:', data);
+      throw new Error('Invalid response format from OpenAI API');
     }
+    
+    console.log('Successfully generated content');
+    return data.result;
   } catch (error) {
     console.error('Error calling OpenAI API:', error);
     throw error;

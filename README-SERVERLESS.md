@@ -43,25 +43,24 @@ vercel --prod
 
 ## Local Development
 
-When developing locally, you have two options:
+### Using Vercel Dev
 
-1. **Run the Express Server**: The application can still use your local server on port 5001.
-   ```bash
-   node server.js
-   ```
+For local development, use Vercel's development environment to test serverless functions:
 
-2. **Use Vercel Dev**: Run Vercel's development environment to test serverless functions.
-   ```bash
-   vercel dev
-   ```
+```bash
+vercel dev
+```
+
+This will run a local development server that mimics the Vercel production environment, allowing you to test your serverless functions locally without having to deploy them first.
 
 ## Architecture
 
-The application is designed to gracefully handle API calls across different environments:
+The application is designed to handle API calls consistently across environments:
 
-- In production, API calls go directly to Vercel serverless functions
-- In development, API calls first try the local path, then fall back to the deployed functions
-- The architecture ensures that you don't have to run a local server to use the application
+- API calls are always made to Vercel serverless functions
+- In development, relative paths ('/api/...') are used
+- In production, absolute paths to the Vercel deployment are used
+- This architecture eliminates the need for a local Express server
 
 ## Serverless Functions
 
