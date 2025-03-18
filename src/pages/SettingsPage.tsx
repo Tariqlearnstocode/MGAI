@@ -31,7 +31,7 @@ const SETTINGS_SECTIONS = [
     id: 'billing',
     name: 'Billing',
     icon: CreditCard,
-    description: 'Manage your subscription and billing information'
+    description: 'Manage your subscription and billing info'
   }
 ];
 
