@@ -1,6 +1,6 @@
-const express = require('express');
-const { createClient } = require('@supabase/supabase-js');
-const bodyParser = require('body-parser');
+import express from 'express';
+import { createClient } from '@supabase/supabase-js';
+import bodyParser from 'body-parser';
 
 // Initialize router
 const router = express.Router();
