@@ -80,6 +80,49 @@ app.post('/api/generate-content', async (req, res) => {
 // Stripe webhook endpoint (raw body for signature verification)
 app.use('/api/webhook/stripe', bodyParser.raw({ type: 'application/json' }));
 
+// Webhook endpoint for Stripe events
+app.post('/api/webhook', async (request, response) => {
+  const event = request.body;
+
+  // Handle the event
+  switch (event.type) {
+    case 'checkout.session.async_payment_failed':
+      const checkoutSessionAsyncPaymentFailed = event.data.object;
+      // Handle the event checkout.session.async_payment_failed
+      break;
+    case 'checkout.session.async_payment_succeeded':
+      const checkoutSessionAsyncPaymentSucceeded = event.data.object;
+      // Handle the event checkout.session.async_payment_succeeded
+      break;
+    case 'checkout.session.completed':
+      const checkoutSessionCompleted = event.data.object;
+      // Handle the event checkout.session.completed
+      break;
+    case 'checkout.session.expired':
+      const checkoutSessionExpired = event.data.object;
+      // Handle the event checkout.session.expired
+      break;
+    case 'customer.created':
+      const customerCreated = event.data.object;
+      // Handle the event customer.created
+      break;
+    case 'customer.deleted':
+      const customerDeleted = event.data.object;
+      // Handle the event customer.deleted
+      break;
+    case 'refund.created':
+      const refundCreated = event.data.object;
+      // Handle the event refund.created
+      break;
+    // ... handle other event types
+    default:
+      console.log(`Unhandled event type ${event.type}`);
+  }
+
+  // Return a 200 response to acknowledge receipt of the event
+  response.send();
+});
+
 // Add a simple test endpoint for healthcheck
 app.get('/api/test', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'API is running' });
