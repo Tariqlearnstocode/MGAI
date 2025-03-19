@@ -33,13 +33,17 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 // Middleware for CORS
 app.use(cors());
 
-// IMPORTANT: Do NOT add express.json() middleware globally
-// Instead, only apply it to non-webhook routes
+// Use express.json for ALL routes EXCEPT the webhook
+app.use((req, res, next) => {
+  if (req.originalUrl === '/api/stripe-webhook') {
+    next();
+  } else {
+    express.json()(req, res, next);
+  }
+});
 
-// IMPORTANT: Set up the webhook route with raw body handling first
-// This must come BEFORE the JSON body parser
-const webhookPath = '/api/stripe-webhook';
-app.post(webhookPath, express.raw({type: 'application/json'}), async (req, res) => {
+// Use raw body parser ONLY for the webhook route
+app.post('/api/stripe-webhook', express.raw({type: 'application/json'}), async (req, res) => {
   try {
     const signature = req.headers['stripe-signature'];
     
@@ -127,16 +131,6 @@ app.post(webhookPath, express.raw({type: 'application/json'}), async (req, res) 
 
 // Configure payment routes - MUST come before general JSON body parser
 configurePaymentRoutes(app);
-
-// NOW apply the JSON body parser to all other routes
-app.use((req, res, next) => {
-  // Skip body parsing for the webhook route
-  if (req.originalUrl === webhookPath) {
-    next();
-  } else {
-    express.json()(req, res, next);
-  }
-});
 
 // OpenAI endpoint for content generation
 app.post('/api/generate-content', async (req, res) => {
