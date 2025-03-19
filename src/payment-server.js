@@ -69,7 +69,7 @@ export function configurePaymentRoutes(app) {
             quantity: 1,
           },
         ],
-        mode: 'subscription',
+        mode: 'payment',
         success_url: successUrl,
         cancel_url: cancelUrl,
         metadata: {
