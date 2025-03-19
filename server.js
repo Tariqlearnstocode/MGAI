@@ -120,7 +120,7 @@ app.post('/api/create-stripe-customer', async (req, res) => {
       email,
       name: name || email.split('@')[0],
       metadata: {
-        userId
+        userId  // Important: Include userId in metadata for webhook processing
       }
     });
     
@@ -138,11 +138,28 @@ app.post('/api/create-stripe-customer', async (req, res) => {
     if (updateError) {
       console.error('Error updating Stripe customer in database:', updateError);
       
+      // If the direct update fails, try using the helper function
+      try {
+        const { data, error: fnError } = await supabase
+          .rpc('process_stripe_customer_creation', {
+            customer_id: customer.id,
+            user_id: userId
+          });
+          
+        if (fnError) {
+          console.error('Helper function also failed:', fnError);
+        } else if (data) {
+          console.log('Successfully updated via helper function');
+        }
+      } catch (helperError) {
+        console.error('Error calling helper function:', helperError);
+      }
+      
       // Even if DB update fails, return success with warning since the Stripe customer was created
       return res.status(200).json({ 
         success: true,
         customerId: customer.id,
-        warning: 'Created Stripe customer but failed to update database'
+        warning: 'Created Stripe customer but faced challenges updating the database'
       });
     }
     
@@ -161,6 +178,81 @@ app.post('/api/create-stripe-customer', async (req, res) => {
     return res.status(500).json({ 
       error: error.message || 'Internal server error',
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// Stripe webhook handler - this should be raw data not JSON parsed
+app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    const signature = req.headers['stripe-signature'];
+    
+    if (!signature) {
+      return res.status(400).json({ error: 'Missing Stripe signature' });
+    }
+    
+    // Verify the webhook signature
+    let event;
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        signature,
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+    } catch (err) {
+      console.error(`⚠️ Webhook signature verification failed:`, err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+    
+    console.log(`Received Stripe webhook event: ${event.type}`);
+    
+    // Store the event in our database for processing by the trigger
+    const { error } = await supabase
+      .from('stripe_webhook_events')
+      .insert({
+        id: event.id,
+        type: event.type,
+        data: event
+      });
+      
+    if (error) {
+      console.error('Error storing webhook event:', error);
+      // Still return 200 to Stripe so they don't retry
+    }
+    
+    // For customer.created events, let's also manually handle it
+    if (event.type === 'customer.created') {
+      const customer = event.data.object;
+      const userId = customer.metadata?.userId;
+      
+      if (userId) {
+        console.log(`Processing customer.created for user ${userId}`);
+        
+        // Update the stripe_customers record
+        const { error: updateError } = await supabase
+          .from('stripe_customers')
+          .update({
+            stripe_customer_id: customer.id,
+            needs_stripe_customer: false
+          })
+          .eq('user_id', userId);
+          
+        if (updateError) {
+          console.error('Error updating customer from webhook:', updateError);
+        }
+      }
+    }
+    
+    // Return a 200 response to acknowledge receipt of the event
+    res.status(200).json({ received: true });
+  } catch (error) {
+    console.error('Error processing Stripe webhook:', error);
+    
+    // Always return 200 to Stripe even if we have an error
+    // This prevents them from retrying the webhook unnecessarily
+    res.status(200).json({ 
+      received: true,
+      error: 'Error processing webhook, but acknowledged receipt'
     });
   }
 });
