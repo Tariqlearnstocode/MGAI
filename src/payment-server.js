@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import dotenv from 'dotenv';
+import express from 'express';
 
 // Load environment variables
 dotenv.config();
@@ -98,51 +99,88 @@ export function configurePaymentRoutes(app) {
   // -------------------------------------------
   // Webhook Handler
   // -------------------------------------------
-  app.post('/api/payments/webhook', async (req, res) => {
-    const signature = req.headers['stripe-signature'];
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-    
+  app.post('/api/stripe-webhook', express.raw({type: 'application/json'}), async (req, res) => {
     try {
-      // Verify webhook signature
-      if (!webhookSecret) {
-        console.warn('⚠️ Webhook secret not configured');
-        return res.status(500).json({ 
-          success: false, 
-          error: 'Webhook secret not configured' 
-        });
+      const signature = req.headers['stripe-signature'];
+      
+      if (!signature) {
+        return res.status(400).json({ error: 'Missing Stripe signature' });
       }
       
-      // Validate the Stripe signature
+      // Verify the webhook signature
       let event;
       try {
         event = stripe.webhooks.constructEvent(
-          req.body, 
-          signature, 
-          webhookSecret
+          req.body,
+          signature,
+          process.env.STRIPE_WEBHOOK_SECRET
         );
       } catch (err) {
-        console.error(`⚠️ Webhook signature verification failed: ${err.message}`);
-        return res.status(400).json({ 
-          success: false, 
-          error: `Webhook Error: ${err.message}` 
-        });
+        console.error(`⚠️ Webhook signature verification failed:`, err.message);
+        return res.status(400).send(`Webhook Error: ${err.message}`);
       }
       
-      // Process the webhook based on event type
-      console.log(`Received webhook event: ${event.type}`);
+      console.log(`Received Stripe webhook event: ${event.type}`);
       
+      // Log event type for debugging
+      console.log('Webhook event type:', event.type);
+      console.log('Event ID:', event.id);
+      
+      // Store the event in our database for processing by the trigger
+      const { error } = await supabase
+        .from('stripe_webhook_events')
+        .insert({
+          id: event.id,
+          type: event.type,
+          data: event
+        });
+        
+      if (error) {
+        console.error('Error storing webhook event:', error);
+        // Continue processing despite storage error
+      }
+      
+      // Process different event types
       if (event.type === 'checkout.session.completed') {
-        await handleCompletedCheckout(event.data.object);
+        console.log('Processing checkout.session.completed event');
+        const session = event.data.object;
+        console.log('Checkout session metadata:', session.metadata);
+        await handleCompletedCheckout(session);
+      } else if (event.type === 'customer.created') {
+        const customer = event.data.object;
+        const customerId = customer.id;
+        const userId = customer.metadata?.userId;
+      
+        console.log(`Processing customer.created for user ${userId} with Stripe customer ID: ${customerId}`);
+      
+        if (userId && customerId) {
+          const { error } = await supabase
+            .from('stripe_customers')
+            .update({
+              stripe_customer_id: customerId,
+            })
+            .eq('user_id', userId);
+        
+          if (error) {
+            console.error('Error updating stripe_customers:', error);
+          } else {
+            console.log(`Successfully stored Stripe customer ID ${customerId} for user ${userId}`);
+          }
+        }
       } else {
         console.log(`Unhandled event type: ${event.type}`);
       }
       
-      return res.status(200).json({ success: true, received: true });
+      // Return a 200 response to acknowledge receipt of the event
+      res.status(200).json({ received: true });
     } catch (error) {
-      console.error(`Error processing webhook: ${error.message}`);
-      return res.status(500).json({ 
-        success: false, 
-        error: error.message || 'Error processing webhook' 
+      console.error('Error processing Stripe webhook:', error);
+      
+      // Always return 200 to Stripe even if we have an error
+      // This prevents them from retrying the webhook unnecessarily
+      res.status(200).json({ 
+        received: true,
+        error: 'Error processing webhook, but acknowledged receipt'
       });
     }
   });
@@ -219,10 +257,14 @@ export function configurePaymentRoutes(app) {
  */
 async function handleCompletedCheckout(session) {
   try {
-    console.log(`Processing completed checkout: ${session.id}`);
+    console.log(`Processing completed checkout session: ${session.id}`);
+    console.log(`Payment status: ${session.payment_status}`);
+    console.log(`Customer: ${session.customer}`);
     
     // Extract metadata
     const { userId, productId, projectId } = session.metadata || {};
+    
+    console.log(`Purchase metadata: userId=${userId}, productId=${productId}, projectId=${projectId}`);
     
     // Validate required metadata
     if (!userId || !productId) {
@@ -234,20 +276,54 @@ async function handleCompletedCheckout(session) {
     let remainingUses = null;
     let usedForProjects = [];
     
-    // Handle agency pack
-    if (productId === 'agency_pack') {
-      remainingUses = 10;
-      
-      // If projectId is specified, use one pack for this project
-      if (projectId) {
-        remainingUses = 9;
-        usedForProjects = [projectId];
-      }
+    // Handle different product types
+    switch(productId) {
+      case 'agency_pack':
+        console.log('Processing agency pack purchase');
+        remainingUses = 10;
+        
+        // If projectId is specified, use one pack for this project
+        if (projectId) {
+          remainingUses = 9;
+          usedForProjects = [projectId];
+          console.log(`Agency pack applied to project ${projectId}, 9 uses remaining`);
+        }
+        break;
+        
+      case 'complete_guide':
+        console.log('Processing complete guide purchase');
+        if (projectId) {
+          usedForProjects = [projectId];
+          console.log(`Complete guide applied to project ${projectId}`);
+        }
+        break;
+        
+      case 'single_plan':
+        console.log('Processing single plan purchase');
+        if (projectId) {
+          usedForProjects = [projectId];
+          console.log(`Single plan applied to project ${projectId}`);
+        }
+        break;
+        
+      default:
+        console.log(`Unknown product type: ${productId}`);
     }
     
-    // Handle complete guide
-    if ((productId === 'complete_guide' || productId === 'single_plan') && projectId) {
-      usedForProjects = [projectId];
+    // Ensure we have the transaction ID
+    const transactionId = session.payment_intent || session.id;
+    console.log(`Transaction ID: ${transactionId}`);
+    
+    // Check if this purchase already exists
+    const { data: existingPurchase, error: checkError } = await supabase
+      .from('purchases')
+      .select('id')
+      .eq('stripe_transaction_id', transactionId)
+      .limit(1);
+      
+    if (!checkError && existingPurchase && existingPurchase.length > 0) {
+      console.log(`Purchase already recorded with ID: ${existingPurchase[0].id}`);
+      return;
     }
     
     // Record the purchase
@@ -257,7 +333,8 @@ async function handleCompletedCheckout(session) {
         user_id: userId,
         product_id: productId,
         status: 'active',
-        stripe_transaction_id: session.payment_intent,
+        stripe_transaction_id: transactionId,
+        purchase_date: new Date().toISOString(),
         stripe_price_id: session.amount_total ? (session.amount_total / 100).toString() : '',
         remaining_uses: remainingUses,
         used_for_projects: usedForProjects.length > 0 ? usedForProjects : null,
@@ -265,23 +342,23 @@ async function handleCompletedCheckout(session) {
       .select();
     
     if (error) {
-      console.error('Error recording purchase:', error.message);
+      console.error('Error recording purchase:', error);
       throw new Error(`Database error: ${error.message}`);
     }
     
-    console.log(`Purchase recorded successfully: ${data[0].id}`);
+    console.log(`Purchase recorded successfully in purchases table: ${data[0].id}`);
     
-    // Update purchase history
+    // Update purchase history in stripe_customers table
     await updatePurchaseHistory(userId, {
       product_id: productId,
       purchase_date: new Date().toISOString(),
       amount: session.amount_total ? session.amount_total / 100 : 0,
-      transaction_id: session.payment_intent
+      transaction_id: transactionId
     });
     
     console.log('Checkout processing completed successfully');
   } catch (error) {
-    console.error('Error processing checkout completion:', error.message);
+    console.error('Error processing checkout completion:', error);
   }
 }
 
