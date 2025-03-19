@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
+import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Download, RefreshCw, Wand2, AlertCircle, ChevronDown, FileText, File } from 'lucide-react';
 import { DocumentType, getLatestDocumentTypes } from '@/lib/documents';
 import { updateDocument, getDocument, getProjectBasicInfo } from '@/lib/projects';
@@ -11,10 +12,18 @@ import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
 import { usePayment } from '@/contexts/PaymentContext';
 import PreviewOverlay from './PreviewOverlay';
+import { cn } from '@/lib/utils';
+import { VariantProps } from 'class-variance-authority';
 
 interface SingleDocumentViewerProps {
   documentId: string;
   projectName: string;
+}
+
+// Use the actual ButtonProps definition that matches our ui/button.tsx
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>, 
+  VariantProps<typeof buttonVariants> {
+  children?: ReactNode;
 }
 
 function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerProps) {
@@ -56,12 +65,17 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
         console.log('Document fetched:', doc);
         setInitialDocument(doc);
         
-        // Force paywall to show for all documents
-        setHasFullAccess(false);
+        // Check if user has access to this document
+        const hasAccess = checkDocumentAccess(doc.type, doc.project_id);
+        setHasFullAccess(hasAccess);
         
         // Log the document order-based preview percentage
-        console.log('Paywall forced: hasFullAccess set to false, previewPercentage:', 
-          getPreviewPercentage(doc.type));
+        console.log('Access check:', { 
+          hasAccess, 
+          previewPercentage: getPreviewPercentage(doc.type),
+          documentType: doc.type, 
+          projectId: doc.project_id
+        });
       } catch (err) {
         console.error('Error fetching document:', err);
         setError(err instanceof Error ? err.message : 'Failed to load document');
