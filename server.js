@@ -33,6 +33,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 // Middleware for CORS
 app.use(cors());
 
+// IMPORTANT: Add JSON body parser middleware
+app.use(express.json());
+
 // IMPORTANT: Set up the webhook route with raw body handling first
 // This must come BEFORE the JSON body parser
 const webhookPath = '/api/stripe-webhook';
@@ -89,7 +92,7 @@ app.post(webhookPath, express.raw({type: 'application/json'}), async (req, res) 
           .from('stripe_customers')
           .update({
             stripe_customer_id: customerId,
-            needs_stripe_customer: false  // if you need to update additional columns
+              // if you need to update additional columns
           })
           .eq('user_id', userId);
     
