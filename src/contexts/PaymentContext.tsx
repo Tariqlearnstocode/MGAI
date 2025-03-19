@@ -112,8 +112,40 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
   };
   
   // Check if user has access to a specific document in a project
-  const checkDocumentAccess = (): boolean => {
-    // Always return false to make paywall show for all documents
+  const checkDocumentAccess = (documentType: string, projectId: string): boolean => {
+    if (!user || loadingPurchases) return false;
+    
+    // Check for any completed purchase records
+    if (purchases.length === 0) return false;
+    
+    // Case 1: User has an active 'complete_guide' purchase for this project
+    const hasCompleteGuide = purchases.some((purchase: Purchase) => 
+      purchase.product_id === 'complete_guide' && 
+      purchase.status === 'active' &&
+      (purchase.used_for_projects?.includes(projectId) || !purchase.used_for_projects)
+    );
+    
+    if (hasCompleteGuide) return true;
+    
+    // Case 2: User has an active 'single_plan' purchase for this specific document
+    const hasSinglePlan = purchases.some((purchase: Purchase) => 
+      purchase.product_id === 'single_plan' && 
+      purchase.status === 'active' &&
+      purchase.used_for_projects?.includes(projectId)
+    );
+    
+    if (hasSinglePlan) return true;
+    
+    // Case 3: User has an agency pack that has been applied to this project
+    const hasAgencyPack = purchases.some((purchase: Purchase) => 
+      purchase.product_id === 'agency_pack' && 
+      purchase.status === 'active' &&
+      purchase.used_for_projects?.includes(projectId)
+    );
+    
+    if (hasAgencyPack) return true;
+    
+    // No valid purchase found
     return false;
   };
   

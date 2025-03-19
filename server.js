@@ -33,6 +33,45 @@ const openai = new OpenAI({
 app.use(cors());
 app.use(bodyParser.json());
 
+// Set up a route to handle Stripe webhooks
+// Important: This must come before the other bodyParser.json() middleware to handle raw bodies
+app.post('/api/webhook/stripe', bodyParser.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  
+  let event;
+
+  try {
+    if (!endpointSecret) {
+      console.warn('Webhook secret not found');
+      return res.status(500).json({ error: 'Webhook secret not configured' });
+    }
+
+    // Verify webhook signature
+    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+  } catch (err) {
+    console.error(`Webhook error: ${err.message}`);
+    return res.status(400).json({ error: `Webhook Error: ${err.message}` });
+  }
+
+  // Handle specific events
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed':
+        await handleCheckoutCompleted(event.data.object);
+        break;
+        
+      default:
+        console.log(`Unhandled event type: ${event.type}`);
+    }
+
+    return res.status(200).json({ received: true });
+  } catch (error) {
+    console.error(`Error processing webhook: ${error.message}`);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 // OpenAI endpoint for content generation
 app.post('/api/generate-content', async (req, res) => {
   try {
@@ -188,44 +227,6 @@ app.post('/api/create-checkout-session', async (req, res) => {
   }
 });
 
-// Stripe webhook handler
-app.post('/api/webhook/stripe', async (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  
-  let event;
-
-  try {
-    if (!endpointSecret) {
-      console.warn('Webhook secret not found');
-      return res.status(500).json({ error: 'Webhook secret not configured' });
-    }
-
-    // Verify webhook signature
-    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
-  } catch (err) {
-    console.error(`Webhook error: ${err.message}`);
-    return res.status(400).json({ error: `Webhook Error: ${err.message}` });
-  }
-
-  // Handle specific events
-  try {
-    switch (event.type) {
-      case 'checkout.session.completed':
-        await handleCheckoutCompleted(event.data.object);
-        break;
-        
-      default:
-        console.log(`Unhandled event type: ${event.type}`);
-    }
-
-    return res.status(200).json({ received: true });
-  } catch (error) {
-    console.error(`Error processing webhook: ${error.message}`);
-    return res.status(500).json({ error: error.message });
-  }
-});
-
 // Helper to get or create Stripe customer
 async function getOrCreateStripeCustomer(userId) {
   // Check if user already has a customer record
@@ -286,12 +287,15 @@ async function getOrCreateStripeCustomer(userId) {
 
 // Helper function to handle checkout.session.completed event
 async function handleCheckoutCompleted(session) {
+  console.log('Processing completed checkout session:', session.id);
   const { userId, productId, projectId } = session.metadata || {};
   
   if (!userId || !productId) {
-    console.error('Missing required metadata in checkout session');
+    console.error('Missing required metadata in checkout session:', { userId, productId });
     return;
   }
+
+  console.log(`Creating purchase record for user ${userId}, product ${productId}${projectId ? `, project ${projectId}` : ''}`);
 
   // Default values based on product
   let remainingUses = null;
@@ -313,53 +317,68 @@ async function handleCheckoutCompleted(session) {
     usedForProjects = [projectId];
   }
 
+  // For single_plan, add the specific project
+  if (productId === 'single_plan' && projectId) {
+    usedForProjects = [projectId];
+  }
+
   // Record the purchase in the database
-  const { error } = await supabase
-    .from('purchases')
-    .insert({
-      user_id: userId,
+  try {
+    const { data, error } = await supabase
+      .from('purchases')
+      .insert({
+        user_id: userId,
+        product_id: productId,
+        status: 'active',
+        stripe_transaction_id: session.payment_intent,
+        stripe_price_id: session.amount_total ? (session.amount_total / 100).toString() : '',
+        remaining_uses: remainingUses,
+        used_for_projects: usedForProjects.length > 0 ? usedForProjects : null,
+      })
+      .select();
+
+    if (error) {
+      console.error('Error recording purchase:', error);
+      throw new Error(`Error recording purchase: ${error.message}`);
+    }
+
+    console.log('Purchase record created successfully:', data);
+
+    // Update purchase history in the customer record
+    const { data: customerData, error: customerError } = await supabase
+      .from('stripe_customers')
+      .select('purchase_history')
+      .eq('user_id', userId)
+      .single();
+
+    if (customerError) {
+      console.error('Error fetching customer record:', customerError);
+      return;
+    }
+
+    // Add the new purchase to purchase history
+    const purchaseHistory = customerData.purchase_history || [];
+    purchaseHistory.push({
       product_id: productId,
-      status: 'active',
-      stripe_transaction_id: session.payment_intent,
-      stripe_price_id: session.amount_total ? (session.amount_total / 100).toString() : '',
-      remaining_uses: remainingUses,
-      used_for_projects: usedForProjects.length > 0 ? usedForProjects : null,
+      purchase_date: new Date().toISOString(),
+      amount: session.amount_total ? session.amount_total / 100 : 0,
+      transaction_id: session.payment_intent
     });
 
-  if (error) {
-    console.error('Error recording purchase:', error);
-    throw new Error(`Error recording purchase: ${error.message}`);
-  }
+    // Update the customer record
+    const { data: updatedCustomer, error: updateError } = await supabase
+      .from('stripe_customers')
+      .update({ purchase_history: purchaseHistory })
+      .eq('user_id', userId)
+      .select();
 
-  // Update purchase history in the customer record
-  const { data: customerData, error: customerError } = await supabase
-    .from('stripe_customers')
-    .select('purchase_history')
-    .eq('user_id', userId)
-    .single();
-
-  if (customerError) {
-    console.error('Error fetching customer record:', customerError);
-    return;
-  }
-
-  // Add the new purchase to purchase history
-  const purchaseHistory = customerData.purchase_history || [];
-  purchaseHistory.push({
-    product_id: productId,
-    purchase_date: new Date().toISOString(),
-    amount: session.amount_total ? session.amount_total / 100 : 0,
-    transaction_id: session.payment_intent
-  });
-
-  // Update the customer record
-  const { error: updateError } = await supabase
-    .from('stripe_customers')
-    .update({ purchase_history: purchaseHistory })
-    .eq('user_id', userId);
-
-  if (updateError) {
-    console.error('Error updating customer record:', updateError);
+    if (updateError) {
+      console.error('Error updating customer record:', updateError);
+    } else {
+      console.log('Customer purchase history updated successfully');
+    }
+  } catch (error) {
+    console.error('Error in checkout completion handler:', error);
   }
 }
 
