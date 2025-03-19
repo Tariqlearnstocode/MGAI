@@ -29,7 +29,7 @@ export function configurePaymentRoutes(app) {
       console.log('Checkout request received:', req.body);
       
       // Validate required data
-      const { priceId, productId, userId } = req.body;
+      const { priceId, productId, userId, returnUrl } = req.body;
       
       if (!priceId || !productId || !userId) {
         return res.status(400).json({
@@ -56,8 +56,11 @@ export function configurePaymentRoutes(app) {
         ? 'https://marketing-guide-ai.com' 
         : 'http://localhost:3000';
         
-      const successUrl = `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`;
-      const cancelUrl = `${baseUrl}/pricing`;
+      // Ensure the success URL has the correct session_id parameter format
+      const success_url = `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`;
+      
+      // Use the returnUrl if provided, otherwise default to pricing page
+      const cancel_url = returnUrl || `${baseUrl}/pricing`;
       
       // Create the checkout session
       const session = await stripe.checkout.sessions.create({
@@ -70,8 +73,8 @@ export function configurePaymentRoutes(app) {
           },
         ],
         mode: 'payment',
-        success_url: successUrl,
-        cancel_url: cancelUrl,
+        success_url,
+        cancel_url,
         metadata: {
           userId,
           productId,
