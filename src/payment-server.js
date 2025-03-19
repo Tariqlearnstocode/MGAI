@@ -33,40 +33,32 @@ export function configurePaymentRoutes(app) {
       
       if (!priceId || !productId || !userId) {
         return res.status(400).json({
-          error: {
-            message: 'Missing required fields: priceId, productId, userId are all required',
-          },
+          error: 'Missing required fields: priceId, productId, userId'
         });
       }
       
-      // Get or create customer
-      const customer = await getOrCreateCustomer(userId);
+      // Get the customer directly from the database
+      const { data: customer, error: customerError } = await supabase
+        .from('stripe_customers')
+        .select('stripe_customer_id')
+        .eq('user_id', userId)
+        .single();
       
-      if (!customer || !customer.stripe_customer_id) {
-        console.error('Failed to create or retrieve Stripe customer for user:', userId);
+      // If there's an error or no customer found, return an error
+      if (customerError || !customer || !customer.stripe_customer_id) {
+        console.error('Failed to retrieve Stripe customer for user:', userId);
         return res.status(500).json({
-          error: {
-            message: 'Could not create Stripe customer',
-          },
+          error: 'Could not find Stripe customer'
         });
       }
       
-      // Use the environment app URL instead of hardcoding it
-      const baseUrl = process.env.VITE_APP_URL || 'https://mgai-production.up.railway.app';
+      // Use the environment app URL
+      const baseUrl = process.env.VITE_APP_URL || 'https://marketing-guide-ai.com';
       
-      // Generate redirect URLs based on projectId if available
-      let documentPath = '';
-      if (projectId) {
-        documentPath = `/app/projects/${projectId}/documents`;
-      }
-      
-      // Success URL includes checkout session ID
+      // Build redirect URLs
+      const documentPath = projectId ? `/app/projects/${projectId}/documents` : '';
       const success_url = `${baseUrl}${documentPath}?success=true&session_id={CHECKOUT_SESSION_ID}`;
-      
-      // For cancel URL, use returnUrl if provided, or return to the document page
       const cancel_url = returnUrl || `${baseUrl}${documentPath}`;
-      
-      console.log('Redirect URLs:', { success_url, cancel_url });
       
       // Create the checkout session
       const session = await stripe.checkout.sessions.create({
@@ -84,38 +76,21 @@ export function configurePaymentRoutes(app) {
         metadata: {
           userId,
           productId,
+          projectId
         },
       });
       
-      console.log(`Created checkout session: ${session.id} for user ${userId}`);
+      console.log(`Created checkout session: ${session.id}`);
       
-      // Update the customer's status in the database
-      try {
-        const { error: updateError } = await supabase
-          .from('stripe_customers')
-          .update({
-            last_checkout_session: session.id,
-            last_checkout_time: new Date().toISOString()
-          })
-          .eq('user_id', userId);
-          
-        if (updateError) {
-          // Log but don't fail checkout if this update fails
-          console.error('Error updating customer with session info:', updateError.message);
-        }
-      } catch (dbError) {
-        console.error('Database error while updating session info:', dbError.message);
-        // Continue - don't fail checkout over this
-      }
-      
-      res.json({ sessionId: session.id, url: session.url });
+      // Return the session details
+      return res.json({ 
+        sessionId: session.id, 
+        url: session.url 
+      });
     } catch (error) {
-      console.error('Checkout session creation error:', error.message);
+      console.error('Checkout error:', error.message);
       return res.status(500).json({
-        error: {
-          message: 'Failed to create checkout session',
-          details: error.message
-        },
+        error: error.message || 'Failed to create checkout session'
       });
     }
   });
@@ -236,156 +211,6 @@ export function configurePaymentRoutes(app) {
   });
 
   console.log('✅ Payment routes configured');
-}
-
-/**
- * Get an existing Stripe customer or create a new one
- * @param {string} userId - The user ID
- * @returns {Promise<Object|null>} The customer data or null if failed
- */
-async function getOrCreateCustomer(userId) {
-  try {
-    // Check if user already has a customer record with a valid Stripe customer ID
-    const { data: existingCustomer, error: fetchError } = await supabase
-      .from('stripe_customers')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
-
-    if (fetchError && fetchError.code !== 'PGRST116') {
-      console.error('Error fetching customer:', fetchError.message);
-      return null;
-    }
-
-    // If we found a record with a valid stripe_customer_id, return it
-    if (existingCustomer && existingCustomer.stripe_customer_id) {
-      console.log(`Found existing Stripe customer ${existingCustomer.stripe_customer_id} for user ${userId}`);
-      return existingCustomer;
-    }
-    
-    console.log(`No valid Stripe customer found for user ${userId}, creating one...`);
-    
-    // Try different methods to get the user's email
-    let email = null;
-    let name = null;
-    
-    // Method 1: Try admin API (may not work in all environments)
-    try {
-      const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
-      
-      if (!userError && userData && userData.user) {
-        email = userData.user.email;
-        name = userData.user.user_metadata?.full_name || email.split('@')[0];
-        console.log(`Got user data from admin API: ${email}`);
-      } else {
-        console.log('Admin API failed or returned no data, trying alternative methods');
-      }
-    } catch (adminError) {
-      console.log('Admin API not available in this environment:', adminError.message);
-    }
-    
-    // Method 2: Try fetching from profiles table if admin API failed
-    if (!email) {
-      try {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('email, full_name')
-          .eq('user_id', userId)
-          .single();
-          
-        if (!profileError && profileData) {
-          email = profileData.email;
-          name = profileData.full_name || email.split('@')[0];
-          console.log(`Got user data from profiles: ${email}`);
-        }
-      } catch (profileError) {
-        console.log('Could not get user from profiles:', profileError.message);
-      }
-    }
-    
-    // Method 3: Create with minimal info if we couldn't get the email
-    if (!email) {
-      // Generate a placeholder email using the userId
-      email = `user-${userId.substring(0, 8)}@example.com`;
-      name = `User ${userId.substring(0, 6)}`;
-      console.log(`Using placeholder email ${email} as we couldn't get user data`);
-    }
-    
-    // Create the Stripe customer
-    const customer = await stripe.customers.create({
-      email,
-      name,
-      metadata: { userId }
-    });
-    
-    console.log(`Created new Stripe customer: ${customer.id} for user ${userId}`);
-    
-    // Update the existing stripe_customers record or create a new one
-    let updatedCustomer;
-    
-    if (existingCustomer) {
-      // Update existing record
-      const { data, error: updateError } = await supabase
-        .from('stripe_customers')
-        .update({
-          stripe_customer_id: customer.id,
-          needs_stripe_customer: false
-        })
-        .eq('user_id', userId)
-        .select()
-        .single();
-      
-      if (updateError) {
-        console.error('Error updating customer record:', updateError.message);
-        throw updateError;
-      }
-      
-      updatedCustomer = data;
-    } else {
-      // Create new record
-      const { data, error: insertError } = await supabase
-        .from('stripe_customers')
-        .insert({
-          user_id: userId,
-          stripe_customer_id: customer.id,
-          purchase_history: []
-        })
-        .select()
-        .single();
-      
-      if (insertError) {
-        console.error('Error creating customer record:', insertError.message);
-        throw insertError;
-      }
-      
-      updatedCustomer = data;
-    }
-    
-    return updatedCustomer;
-  } catch (error) {
-    console.error('Error in getOrCreateCustomer:', error.message);
-    
-    // Last resort - return a minimal object with just the stripe customer ID
-    // This allows checkout to proceed even if database updates fail
-    try {
-      // Create a minimal Stripe customer without DB updates
-      const customer = await stripe.customers.create({
-        email: `emergency-${userId.substring(0, 8)}@example.com`,
-        name: 'Emergency User',
-        metadata: { userId }
-      });
-      
-      console.log(`Created emergency fallback customer: ${customer.id}`);
-      
-      return {
-        user_id: userId,
-        stripe_customer_id: customer.id
-      };
-    } catch (finalError) {
-      console.error('Complete failure in customer creation:', finalError);
-      return null;
-    }
-  }
 }
 
 /**
