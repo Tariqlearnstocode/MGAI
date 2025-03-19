@@ -59,6 +59,9 @@ app.post(webhookPath, express.raw({type: 'application/json'}), async (req, res) 
     
     console.log(`Received Stripe webhook event: ${event.type}`);
     
+    // Log the full event data for debugging
+    console.log('Webhook event data:', JSON.stringify(event.data.object, null, 2));
+    
     // Store the event in our database for processing by the trigger
     const { error } = await supabase
       .from('stripe_webhook_events')
@@ -76,23 +79,47 @@ app.post(webhookPath, express.raw({type: 'application/json'}), async (req, res) 
     // For customer.created events, let's also manually handle it
     if (event.type === 'customer.created') {
       const customer = event.data.object;
+      const customerId = customer.id; // Stripe customer ID (e.g., cus_NffrFeUfNV2Hib)
       const userId = customer.metadata?.userId;
       
-      if (userId) {
-        console.log(`Processing customer.created for user ${userId}`);
+      console.log(`Received customer.created webhook for customer ID: ${customerId}`);
+      
+      if (userId && customerId) {
+        console.log(`Processing customer.created for user ${userId} with Stripe customer ID: ${customerId}`);
         
         // Update the stripe_customers record
         const { error: updateError } = await supabase
           .from('stripe_customers')
           .update({
-            stripe_customer_id: customer.id,
+            stripe_customer_id: customerId,
             needs_stripe_customer: false
           })
           .eq('user_id', userId);
           
         if (updateError) {
           console.error('Error updating customer from webhook:', updateError);
+          
+          // Try the helper function as a fallback
+          try {
+            const { data: fnResult, error: fnError } = await supabase
+              .rpc('process_stripe_customer_creation', {
+                customer_id: customerId,
+                user_id: userId
+              });
+              
+            if (fnError) {
+              console.error('Helper function also failed:', fnError);
+            } else {
+              console.log('Successfully updated customer via helper function:', fnResult);
+            }
+          } catch (helperError) {
+            console.error('Error calling helper function:', helperError);
+          }
+        } else {
+          console.log(`Successfully updated stripe_customers record for user ${userId} with Stripe ID ${customerId}`);
         }
+      } else {
+        console.warn(`Missing data in webhook: userId=${userId}, customerId=${customerId}`);
       }
     }
     
