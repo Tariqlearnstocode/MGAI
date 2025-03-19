@@ -23,13 +23,13 @@ export async function initiateCheckout(params: CheckoutParams): Promise<{ url: s
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to create checkout session');
+      throw new Error(errorData.error?.message || 'Failed to create checkout session');
     }
 
     const data = await response.json();
     
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to create checkout session');
+    if (!data.url) {
+      throw new Error('Invalid response from checkout endpoint');
     }
 
     return { url: data.url };
