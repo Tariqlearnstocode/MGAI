@@ -13,7 +13,7 @@ export interface CheckoutParams {
  */
 export async function initiateCheckout(params: CheckoutParams): Promise<{ url: string }> {
   try {
-    const response = await fetch('/api/create-checkout-session', {
+    const response = await fetch('/api/payments/create-checkout', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -26,7 +26,13 @@ export async function initiateCheckout(params: CheckoutParams): Promise<{ url: s
       throw new Error(errorData.error || 'Failed to create checkout session');
     }
 
-    return await response.json();
+    const data = await response.json();
+    
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to create checkout session');
+    }
+
+    return { url: data.url };
   } catch (error) {
     console.error('Error initiating checkout:', error);
     throw error;
@@ -34,80 +40,60 @@ export async function initiateCheckout(params: CheckoutParams): Promise<{ url: s
 }
 
 /**
- * Gets a user's active purchases from Supabase
+ * Gets a user's purchases
+ * @param userId The user ID
+ * @returns Array of purchase objects
  */
-export async function getUserPurchases(userId?: string) {
-  if (!userId) return [];
-  
+export async function getUserPurchases(userId: string): Promise<any[]> {
   try {
-    const { data, error } = await supabase
-      .from('purchases')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('status', 'active');
-      
-    if (error) {
-      console.error('Error fetching purchases:', error);
-      return [];
+    const response = await fetch(`/api/payments/purchases/${userId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to fetch purchases');
     }
+
+    const data = await response.json();
     
-    return data || [];
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to fetch purchases');
+    }
+
+    return data.purchases || [];
   } catch (error) {
-    console.error('Error getting user purchases:', error);
+    console.error('Error fetching purchases:', error);
     return [];
   }
 }
 
 /**
- * Applies an agency pack to a project
+ * Applies an agency pack to a specific project
+ * @param userId The user ID
+ * @param projectId The project ID
+ * @returns Boolean indicating success
  */
 export async function applyAgencyPackToProject(userId: string, projectId: string): Promise<boolean> {
   try {
-    // Get active purchases for this user
-    const { data: purchases, error } = await supabase
-      .from('purchases')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('product_id', 'agency_pack')
-      .eq('status', 'active')
-      .gt('remaining_uses', 0);
-      
-    if (error) {
-      console.error('Error fetching agency packs:', error);
-      return false;
+    const response = await fetch('/api/payments/apply-pack', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ userId, projectId }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to apply agency pack');
     }
-    
-    // Check if there's an available agency pack
-    if (!purchases || purchases.length === 0) {
-      console.error('No active agency packs available');
-      return false;
-    }
-    
-    // Use the first available agency pack
-    const pack = purchases[0];
-    
-    // Check if this project already used a pack
-    const usedFor = pack.used_for_projects || [];
-    if (usedFor.includes(projectId)) {
-      // Already applied to this project
-      return true;
-    }
-    
-    // Update the pack
-    const { error: updateError } = await supabase
-      .from('purchases')
-      .update({
-        remaining_uses: pack.remaining_uses - 1,
-        used_for_projects: [...usedFor, projectId]
-      })
-      .eq('id', pack.id);
-      
-    if (updateError) {
-      console.error('Error updating agency pack:', updateError);
-      return false;
-    }
-    
-    return true;
+
+    const data = await response.json();
+    return data.success || false;
   } catch (error) {
     console.error('Error applying agency pack:', error);
     return false;
