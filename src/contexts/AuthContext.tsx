@@ -1,11 +1,12 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signUp: (email: string, password: string, fullName: string) => Promise<void>;
+  signUp: (email: string, password: string, fullName: string) => Promise<{user: User | null, session: Session | null} | undefined>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -57,6 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, fullName: string) => {
     try {
+      // Create the user in Supabase Auth
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -69,10 +71,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) throw error;
       
-      if (data?.user) {
-        // Create Stripe customer after successful signup
-        await createStripeCustomer(data.user.id, email, fullName);
+      // If user created successfully, create Stripe customer
+      if (data.user) {
+        try {
+          await createStripeCustomer(data.user.id, email, fullName);
+        } catch (stripeError) {
+          console.error('Stripe customer creation error:', stripeError);
+          // Continue anyway - user was created successfully
+        }
       }
+      
+      return data;
     } catch (error) {
       console.error('Error during signup:', error);
       throw error;

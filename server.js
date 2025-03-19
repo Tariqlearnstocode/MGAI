@@ -200,95 +200,41 @@ app.post('/api/create-stripe-customer', async (req, res) => {
     const { userId, email, name } = req.body;
     
     if (!userId || !email) {
-      return res.status(400).json({ error: 'Missing required parameters: userId and email are required' });
-    }
-    
-    // First check if a stripe_customers record exists for this user
-    const { data: existingCustomer, error: customerError } = await supabase
-      .from('stripe_customers')
-      .select('stripe_customer_id')
-      .eq('user_id', userId)
-      .single();
-    
-    if (customerError && customerError.code !== 'PGRST116') {
-      console.error('Error fetching customer record:', customerError);
-      return res.status(500).json({ error: 'Database error fetching customer record' });
-    }
-    
-    // If there's already a Stripe customer ID, return it
-    if (existingCustomer && existingCustomer.stripe_customer_id) {
-      console.log(`Found existing Stripe customer: ${existingCustomer.stripe_customer_id} for user: ${userId}`);
-      return res.status(200).json({ 
-        success: true,
-        customerId: existingCustomer.stripe_customer_id,
-        existing: true
-      });
+      return res.status(400).json({ error: 'Missing required parameters' });
     }
     
     // Create Stripe customer
     const customer = await stripe.customers.create({
       email,
       name: name || email.split('@')[0],
-      metadata: {
-        userId  // Important: Include userId in metadata for webhook processing
-      }
+      metadata: { userId }
     });
     
     console.log(`Created Stripe customer: ${customer.id} for user: ${userId}`);
     
-    // Update the database record with the actual Stripe customer ID
-    const { error: updateError } = await supabase
+    // Update database with the Stripe customer ID
+    const { error } = await supabase
       .from('stripe_customers')
-      .update({
-        stripe_customer_id: customer.id,
-        needs_stripe_customer: false
-      })
+      .update({ stripe_customer_id: customer.id })
       .eq('user_id', userId);
     
-    if (updateError) {
-      console.error('Error updating Stripe customer in database:', updateError);
-      
-      // If the direct update fails, try using the helper function
-      try {
-        const { data, error: fnError } = await supabase
-          .rpc('process_stripe_customer_creation', {
-            customer_id: customer.id,
-            user_id: userId
-          });
-          
-        if (fnError) {
-          console.error('Helper function also failed:', fnError);
-        } else if (data) {
-          console.log('Successfully updated via helper function');
-        }
-      } catch (helperError) {
-        console.error('Error calling helper function:', helperError);
-      }
-      
-      // Even if DB update fails, return success with warning since the Stripe customer was created
+    if (error) {
+      console.error('Database update error:', error);
+      // Still return success since Stripe customer was created
       return res.status(200).json({ 
-        success: true,
+        success: true, 
         customerId: customer.id,
-        warning: 'Created Stripe customer but faced challenges updating the database'
+        warning: 'Customer created but database update failed'
       });
     }
     
     return res.status(200).json({ 
-      success: true,
-      customerId: customer.id
+      success: true, 
+      customerId: customer.id 
     });
   } catch (error) {
-    console.error('Error creating Stripe customer:', error);
-    
-    // Log more details about the error
-    if (error.response) {
-      console.error('Stripe API error:', error.response.data);
-    }
-    
-    return res.status(500).json({ 
-      error: error.message || 'Internal server error',
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
+    console.error('Error:', error);
+    return res.status(500).json({ error: error.message });
   }
 });
 
