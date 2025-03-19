@@ -33,8 +33,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 // Middleware for CORS
 app.use(cors());
 
-// IMPORTANT: Add JSON body parser middleware
-app.use(express.json());
+// IMPORTANT: Do NOT add express.json() middleware globally
+// Instead, only apply it to non-webhook routes
 
 // IMPORTANT: Set up the webhook route with raw body handling first
 // This must come BEFORE the JSON body parser
@@ -128,13 +128,13 @@ app.post(webhookPath, express.raw({type: 'application/json'}), async (req, res) 
 // Configure payment routes - MUST come before general JSON body parser
 configurePaymentRoutes(app);
 
-// AFTER setting up the webhook route, apply the JSON body parser to all other routes
+// NOW apply the JSON body parser to all other routes
 app.use((req, res, next) => {
   // Skip body parsing for the webhook route
   if (req.originalUrl === webhookPath) {
     next();
   } else {
-    bodyParser.json()(req, res, next);
+    express.json()(req, res, next);
   }
 });
 
