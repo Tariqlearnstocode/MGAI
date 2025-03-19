@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePayment } from '@/contexts/PaymentContext';
 import { Button } from '@/components/ui/button';
-import { Lock, CheckCircle, Shield, Users, ArrowRight, Sparkles } from 'lucide-react';
+import { Lock, CheckCircle, Users, ArrowRight, Sparkles } from 'lucide-react';
 
 interface PreviewOverlayProps {
   projectId: string;
@@ -17,7 +17,7 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
   const [isMobile, setIsMobile] = useState(false);
   
   // Check if mobile
-  useState(() => {
+  useEffect(() => {
     const checkScreenSize = () => {
       setIsMobile(window.innerWidth < 768);
     };
@@ -130,40 +130,7 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
                 {success}
               </div>
             )}
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Single Document Plan */}
-              <div className="border rounded-lg overflow-hidden bg-white shadow-sm h-full">
-                <div className="p-5 bg-white h-full flex flex-col">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className="text-lg font-semibold">Single Document</h3>
-                      <p className="text-gray-500 text-sm">For individual documents</p>
-                    </div>
-                    <Shield className="h-6 w-6 text-blue-500" />
-                  </div>
-                  <div className="mb-4">
-                    <span className="text-3xl font-bold">$19</span>
-                  </div>
-                  <ul className="space-y-2 mb-5 flex-grow">
-                    {getProductFeatures('single_plan').map((feature, index) => (
-                      <li key={index} className="flex items-start">
-                        <CheckCircle className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                        <span className="text-sm leading-tight">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <Button
-                    className="w-full text-sm py-2 px-2 font-medium"
-                    onClick={() => handleCheckout('single_plan')}
-                    disabled={loading !== null}
-                    size="sm"
-                  >
-                    {loading === 'single_plan' ? 'Processing...' : 'Get Access'}
-                  </Button>
-                </div>
-              </div>
-
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mx-auto max-w-3xl">
               {/* Complete Guide */}
               <div className="border rounded-lg overflow-hidden bg-white shadow-sm h-full">
                 <div className="p-5 bg-white h-full flex flex-col">
