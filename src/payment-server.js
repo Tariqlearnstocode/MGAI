@@ -29,7 +29,7 @@ export function configurePaymentRoutes(app) {
       console.log('Checkout request received:', req.body);
       
       // Validate required data
-      const { priceId, productId, userId, returnUrl } = req.body;
+      const { priceId, productId, userId, returnUrl, projectId } = req.body;
       
       if (!priceId || !productId || !userId) {
         return res.status(400).json({
@@ -51,16 +51,22 @@ export function configurePaymentRoutes(app) {
         });
       }
       
-      // Generate URLs based on environment
-      const baseUrl = process.env.NODE_ENV === 'production' 
-        ? 'https://marketing-guide-ai.com' 
-        : 'http://localhost:3000';
-        
-      // Ensure the success URL has the correct session_id parameter format
-      const success_url = `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`;
+      // Use the environment app URL instead of hardcoding it
+      const baseUrl = process.env.VITE_APP_URL || 'https://mgai-production.up.railway.app';
       
-      // Use the returnUrl if provided, otherwise default to pricing page
-      const cancel_url = returnUrl || `${baseUrl}/pricing`;
+      // Generate redirect URLs based on projectId if available
+      let documentPath = '';
+      if (projectId) {
+        documentPath = `/app/projects/${projectId}/documents`;
+      }
+      
+      // Success URL includes checkout session ID
+      const success_url = `${baseUrl}${documentPath}?success=true&session_id={CHECKOUT_SESSION_ID}`;
+      
+      // For cancel URL, use returnUrl if provided, or return to the document page
+      const cancel_url = returnUrl || `${baseUrl}${documentPath}`;
+      
+      console.log('Redirect URLs:', { success_url, cancel_url });
       
       // Create the checkout session
       const session = await stripe.checkout.sessions.create({
