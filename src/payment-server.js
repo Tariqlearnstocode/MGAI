@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import dotenv from 'dotenv';
 import express from 'express';
+import { handleSuccessfulPayment } from './credit-payment-server.js';
 
 // Load environment variables
 dotenv.config();
@@ -270,6 +271,15 @@ async function handleCompletedCheckout(session) {
     if (!userId || !productId) {
       console.error('Missing required metadata in session:', session.id);
       return;
+    }
+    
+    // First update credit balance (for complete_guide and agency_pack)
+    const creditResult = await handleSuccessfulPayment(session);
+    if (!creditResult.success) {
+      console.error('Error updating credit balance:', creditResult.error);
+      // Continue with purchase processing despite credit error
+    } else if (creditResult.creditBalance !== undefined) {
+      console.log(`Updated credit balance to ${creditResult.creditBalance}`);
     }
     
     // Set product-specific values
