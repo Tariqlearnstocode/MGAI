@@ -53,7 +53,7 @@ export function configurePaymentRoutes(app) {
       
       // Generate URLs based on environment
       const baseUrl = process.env.NODE_ENV === 'production' 
-        ? 'https://mgai-production.up.railway.app/' 
+        ? 'https://marketing-guide-ai.com' 
         : 'http://localhost:3000';
         
       const successUrl = `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`;
@@ -256,19 +256,50 @@ async function getOrCreateCustomer(userId) {
     
     console.log(`No valid Stripe customer found for user ${userId}, creating one...`);
     
-    // Get user email directly from auth users
-    const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
+    // Try different methods to get the user's email
+    let email = null;
+    let name = null;
     
-    if (userError || !userData || !userData.user) {
-      console.error('Error getting user data:', userError || 'No user data found');
-      throw new Error('Could not retrieve user data');
+    // Method 1: Try admin API (may not work in all environments)
+    try {
+      const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
+      
+      if (!userError && userData && userData.user) {
+        email = userData.user.email;
+        name = userData.user.user_metadata?.full_name || email.split('@')[0];
+        console.log(`Got user data from admin API: ${email}`);
+      } else {
+        console.log('Admin API failed or returned no data, trying alternative methods');
+      }
+    } catch (adminError) {
+      console.log('Admin API not available in this environment:', adminError.message);
     }
     
-    const email = userData.user.email;
-    const name = userData.user.user_metadata?.full_name || email.split('@')[0];
-    
+    // Method 2: Try fetching from profiles table if admin API failed
     if (!email) {
-      throw new Error('Could not determine user email');
+      try {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('email, full_name')
+          .eq('user_id', userId)
+          .single();
+          
+        if (!profileError && profileData) {
+          email = profileData.email;
+          name = profileData.full_name || email.split('@')[0];
+          console.log(`Got user data from profiles: ${email}`);
+        }
+      } catch (profileError) {
+        console.log('Could not get user from profiles:', profileError.message);
+      }
+    }
+    
+    // Method 3: Create with minimal info if we couldn't get the email
+    if (!email) {
+      // Generate a placeholder email using the userId
+      email = `user-${userId.substring(0, 8)}@example.com`;
+      name = `User ${userId.substring(0, 6)}`;
+      console.log(`Using placeholder email ${email} as we couldn't get user data`);
     }
     
     // Create the Stripe customer
@@ -330,6 +361,8 @@ async function getOrCreateCustomer(userId) {
     try {
       // Create a minimal Stripe customer without DB updates
       const customer = await stripe.customers.create({
+        email: `emergency-${userId.substring(0, 8)}@example.com`,
+        name: 'Emergency User',
         metadata: { userId }
       });
       
