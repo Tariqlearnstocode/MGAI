@@ -21,32 +21,6 @@ UPDATE auth.users
 SET email_confirmed_at = COALESCE(email_confirmed_at, now())
 WHERE email_confirmed_at IS NULL;
 
--- Ensure the handle_new_user function exists and is up to date
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  -- Create a stripe_customers record for the new user
-  INSERT INTO public.stripe_customers (
-    user_id,
-    stripe_customer_id,
-    purchase_history
-  )
-  VALUES (
-    NEW.id,
-    NEW.email || '_' || NEW.id,  -- Temporary ID until Stripe customer is created
-    '[]'::jsonb
-  );
-  
-  RETURN NEW;
-END;
-$$;
-
--- Ensure the trigger exists
+-- Drop the trigger that creates placeholder Stripe customer IDs
+-- This was causing user creation to fail due to database constraints
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
