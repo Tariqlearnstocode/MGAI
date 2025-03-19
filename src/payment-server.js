@@ -232,22 +232,71 @@ async function getOrCreateCustomer(userId) {
       return existingCustomer;
     }
 
-    // No existing customer, get user details from profiles
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (profileError) {
-      console.error('Error fetching user profile:', profileError.message);
-      return null;
+    // Try different approaches to get user data
+    console.log(`Creating new customer for user ${userId}`);
+    
+    // First try getting data from the auth.users directly
+    let email = null;
+    let name = null;
+    
+    // 1. Try getting from auth table first
+    try {
+      const { data: authUser } = await supabase
+        .from('auth.users')
+        .select('email')
+        .eq('id', userId)
+        .single();
+        
+      if (authUser) {
+        email = authUser.email;
+        console.log(`Found user email from auth: ${email}`);
+      }
+    } catch (err) {
+      console.log('Could not get user from auth table, trying profiles');
     }
-
-    // Create new customer in Stripe
+    
+    // 2. Try with profiles table if auth didn't work
+    if (!email) {
+      try {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('email, full_name')
+          .eq('user_id', userId) // Try with user_id field first (common convention)
+          .limit(1);
+          
+        if (profiles && profiles.length > 0) {
+          email = profiles[0].email;
+          name = profiles[0].full_name;
+          console.log(`Found user data from profiles using user_id: ${email}`);
+        }
+      } catch (err) {
+        console.log('Could not get user from profiles by user_id');
+      }
+    }
+    
+    // 3. Last attempt with profiles using id field
+    if (!email) {
+      try {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('email, full_name')
+          .eq('id', userId) // Try with id field (alternative convention)
+          .limit(1);
+          
+        if (profiles && profiles.length > 0) {
+          email = profiles[0].email;
+          name = profiles[0].full_name;
+          console.log(`Found user data from profiles using id: ${email}`);
+        }
+      } catch (err) {
+        console.log('Could not get user from profiles by id');
+      }
+    }
+    
+    // Create customer with whatever data we could find
     const customer = await stripe.customers.create({
-      email: profile.email,
-      name: profile.full_name || 'Customer',
+      email: email || `user-${userId.substring(0, 8)}@placeholder.com`,
+      name: name || 'Customer',
       metadata: {
         userId,
       },
@@ -274,6 +323,31 @@ async function getOrCreateCustomer(userId) {
     return newCustomer;
   } catch (error) {
     console.error('Error in getOrCreateCustomer:', error.message);
+    
+    // Last resort fallback - create a customer with minimal info
+    try {
+      const customer = await stripe.customers.create({
+        metadata: { userId }
+      });
+      
+      const { data: newCustomer, error: insertError } = await supabase
+        .from('stripe_customers')
+        .insert({
+          user_id: userId,
+          stripe_customer_id: customer.id,
+          purchase_history: [],
+        })
+        .select()
+        .single();
+        
+      if (!insertError && newCustomer) {
+        console.log('Created emergency fallback customer');
+        return newCustomer;
+      }
+    } catch (fallbackError) {
+      console.error('Even fallback customer creation failed:', fallbackError.message);
+    }
+    
     return null;
   }
 }
