@@ -79,44 +79,29 @@ app.post(webhookPath, express.raw({type: 'application/json'}), async (req, res) 
     // For customer.created events, let's also manually handle it
     if (event.type === 'customer.created') {
       const customer = event.data.object;
-      const customerId = customer.id; // Stripe customer ID (e.g., cus_NffrFeUfNV2Hib)
-      const userId = customer.metadata?.userId;
-      
-      console.log(`Received customer.created webhook for customer ID: ${customerId}`);
-      
+      const customerId = customer.id; // e.g., "cus_RyNv6AaGvyym69"
+      const userId = customer.metadata?.userId; // e.g., "07e723d7-e943-459f-ae69-2abae68c9112"
+    
+      console.log(`Processing customer.created for user ${userId} with Stripe customer ID: ${customerId}`);
+    
       if (userId && customerId) {
-        console.log(`Processing customer.created for user ${userId} with Stripe customer ID: ${customerId}`);
-        
-        // Update the stripe_customers record
-        const { error: updateError } = await supabase
+        const { error } = await supabase
           .from('stripe_customers')
           .update({
             stripe_customer_id: customerId,
-            needs_stripe_customer: false
+            needs_stripe_customer: false  // if you need to update additional columns
           })
           .eq('user_id', userId);
-          
-        if (updateError) {
-          console.error('Error updating customer from webhook:', updateError);
-          
-          // Try the helper function as a fallback
-          try {
-            const { data: fnResult, error: fnError } = await supabase
-              .rpc('process_stripe_customer_creation', {
-                customer_id: customerId,
-                user_id: userId
-              });
-              
-            if (fnError) {
-              console.error('Helper function also failed:', fnError);
-            } else {
-              console.log('Successfully updated customer via helper function:', fnResult);
-            }
-          } catch (helperError) {
-            console.error('Error calling helper function:', helperError);
-          }
+    
+        if (error) {
+          console.error('Error updating stripe_customers:', error);
+          // Optionally, insert a new record if one doesn't exist:
+          // const { error: insertError } = await supabase
+          //   .from('stripe_customers')
+          //   .insert({ user_id: userId, stripe_customer_id: customerId });
+          // if (insertError) console.error('Insert also failed:', insertError);
         } else {
-          console.log(`Successfully updated stripe_customers record for user ${userId} with Stripe ID ${customerId}`);
+          console.log(`Successfully stored Stripe customer ID ${customerId} for user ${userId}`);
         }
       } else {
         console.warn(`Missing data in webhook: userId=${userId}, customerId=${customerId}`);
