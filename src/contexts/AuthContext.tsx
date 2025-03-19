@@ -31,18 +31,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, fullName: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
+  const createStripeCustomer = async (userId: string, email: string, name?: string) => {
+    try {
+      const response = await fetch('/api/create-stripe-customer', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      },
-    });
+        body: JSON.stringify({
+          userId,
+          email,
+          name
+        }),
+      });
 
-    if (error) throw error;
+      if (!response.ok) {
+        console.error('Failed to create Stripe customer');
+      } else {
+        console.log('Stripe customer created successfully');
+      }
+    } catch (error) {
+      console.error('Error creating Stripe customer:', error);
+    }
+  };
+
+  const signUp = async (email: string, password: string, fullName: string) => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+          },
+        },
+      });
+
+      if (error) throw error;
+      
+      if (data?.user) {
+        // Create Stripe customer after successful signup
+        await createStripeCustomer(data.user.id, email, fullName);
+      }
+    } catch (error) {
+      console.error('Error during signup:', error);
+      throw error;
+    }
   };
 
   const signIn = async (email: string, password: string) => {

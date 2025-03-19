@@ -5,6 +5,7 @@ import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import OpenAI from 'openai';
 import { configurePaymentRoutes } from './src/payment-server.js';
+import Stripe from 'stripe';
 
 // Load environment variables
 dotenv.config();
@@ -22,6 +23,11 @@ const supabase = createClient(
 // Initialize OpenAI
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
+});
+
+// Initialize Stripe
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: '2022-11-15',
 });
 
 // Middleware for CORS
@@ -74,6 +80,50 @@ app.post('/api/generate-content', async (req, res) => {
     if (error.response) {
       console.error('API Error details:', JSON.stringify(error.response.data, null, 2));
     }
+    return res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
+// Create Stripe customer endpoint
+app.post('/api/create-stripe-customer', async (req, res) => {
+  try {
+    const { userId, email, name } = req.body;
+    
+    if (!userId || !email) {
+      return res.status(400).json({ error: 'Missing required parameters: userId and email are required' });
+    }
+    
+    // Create Stripe customer
+    const customer = await stripe.customers.create({
+      email,
+      name: name || email.split('@')[0],
+      metadata: {
+        userId
+      }
+    });
+    
+    console.log(`Created Stripe customer: ${customer.id} for user: ${userId}`);
+    
+    // Store in Supabase
+    const { error } = await supabase
+      .from('stripe_customers')
+      .upsert({
+        user_id: userId,
+        stripe_customer_id: customer.id,
+        purchase_history: []
+      });
+    
+    if (error) {
+      console.error('Error storing Stripe customer in database:', error);
+      return res.status(500).json({ error: 'Failed to store customer in database' });
+    }
+    
+    return res.status(200).json({ 
+      success: true,
+      customerId: customer.id
+    });
+  } catch (error) {
+    console.error('Error creating Stripe customer:', error);
     return res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });
