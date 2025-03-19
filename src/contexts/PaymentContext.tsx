@@ -1,7 +1,13 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './AuthContext';
-import { initiateCheckout as apiInitiateCheckout, getUserPurchases, applyAgencyPackToProject as apiApplyPack } from '@/lib/api';
+import { 
+  initiateCheckout as apiInitiateCheckout, 
+  getUserPurchases, 
+  applyAgencyPackToProject as apiApplyPack,
+  getCreditBalance,
+  applyCredit
+} from '@/lib/api';
 import { DocumentType, getLatestDocumentTypes } from '@/lib/documents';
 
 // Define the Purchase type to match our database schema
@@ -35,11 +41,16 @@ interface PaymentContextType {
   loadingProducts: boolean;
   docTypes: DocumentType[];
   loadingDocTypes: boolean;
+  creditBalance: number;
+  customerId: string | null;
+  loadingCreditBalance: boolean;
   checkDocumentAccess: (documentType: string, projectId: string) => boolean;
   getPreviewPercentage: (documentType: string) => number;
   initiateCheckout: (productId: string, projectId?: string) => Promise<void>;
   applyAgencyPackToProject: (projectId: string) => Promise<boolean>;
   refreshPurchases: () => Promise<void>;
+  applyCreditToProject: (projectId: string) => Promise<{success: boolean; message?: string}>;
+  refreshCreditBalance: () => Promise<void>;
 }
 
 const PaymentContext = createContext<PaymentContextType | undefined>(undefined);
@@ -112,8 +123,49 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
   };
   
   // Check if user has access to a specific document in a project
+  // State to track unlocked projects
+  const [unlockedProjects, setUnlockedProjects] = useState<Record<string, boolean>>({});
+
+  // Check if projects are unlocked in the database when the component loads
+  useEffect(() => {
+    if (!user) return;
+
+    const checkProjectsUnlocked = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('projects')
+          .select('id, is_unlocked')
+          .eq('user_id', user.id);
+        
+        if (error) {
+          console.error('Error checking projects unlock status:', error);
+          return;
+        }
+        
+        if (data && data.length > 0) {
+          const unlocked = data.reduce((acc: Record<string, boolean>, project) => {
+            acc[project.id] = project.is_unlocked;
+            return acc;
+          }, {});
+          
+          setUnlockedProjects(unlocked);
+        }
+      } catch (err) {
+        console.error('Error checking if projects are unlocked:', err);
+      }
+    };
+
+    checkProjectsUnlocked();
+  }, [user]);
+
   const checkDocumentAccess = (documentType: string, projectId: string): boolean => {
     if (!user || loadingPurchases) return false;
+    
+    // Case 0: Check if project is unlocked via credits in the database
+    if (unlockedProjects[projectId]) {
+      console.log(`Project ${projectId} is unlocked via credits`);
+      return true;
+    }
     
     // Check for any completed purchase records
     if (purchases.length === 0) return false;
@@ -215,6 +267,66 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
   const refreshPurchases = async () => {
     await fetchPurchases();
   };
+
+  // Add state for credit balance
+  const [creditBalance, setCreditBalance] = useState<number>(0);
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [loadingCreditBalance, setLoadingCreditBalance] = useState<boolean>(true);
+
+  // Fetch user's credit balance
+  const fetchCreditBalance = async () => {
+    if (!user) return;
+    
+    setLoadingCreditBalance(true);
+    try {
+      const result = await getCreditBalance(user.id);
+      setCreditBalance(result.creditBalance);
+      setCustomerId(result.customerId || null);
+    } catch (error) {
+      console.error('Error fetching credit balance:', error);
+    } finally {
+      setLoadingCreditBalance(false);
+    }
+  };
+
+  // Apply a credit to a project
+  const applyCreditToProject = async (projectId: string): Promise<{success: boolean; message?: string}> => {
+    if (!user || !customerId) return { success: false, message: 'User not logged in or no customer ID' };
+    
+    try {
+      const result = await applyCredit(customerId, projectId);
+      
+      if (result.success) {
+        // Update credit balance
+        if (result.creditBalance !== undefined) {
+          setCreditBalance(result.creditBalance);
+        }
+        
+        // Refresh unlocked status
+        setUnlockedProjects(prev => ({
+          ...prev,
+          [projectId]: true
+        }));
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Error applying credit:', error);
+      return { success: false, message: 'Error applying credit' };
+    }
+  };
+
+  // Function to manually refresh credit balance
+  const refreshCreditBalance = async () => {
+    await fetchCreditBalance();
+  };
+  
+  // Initialize credit balance when user changes
+  useEffect(() => {
+    if (user) {
+      fetchCreditBalance();
+    }
+  }, [user]);
   
   return (
     <PaymentContext.Provider
@@ -225,11 +337,16 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
         loadingProducts,
         docTypes,
         loadingDocTypes,
+        creditBalance,
+        customerId,
+        loadingCreditBalance,
         checkDocumentAccess,
         getPreviewPercentage,
         initiateCheckout,
         applyAgencyPackToProject,
         refreshPurchases,
+        applyCreditToProject,
+        refreshCreditBalance,
       }}
     >
       {children}

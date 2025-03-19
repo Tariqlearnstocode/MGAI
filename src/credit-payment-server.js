@@ -93,6 +93,29 @@ export async function handleSuccessfulPayment(session) {
   }
 }
 
+/**
+ * Helper function to unlock a project
+ */
+async function unlockProject(projectId) {
+  try {
+    // Unlock the project
+    const { error } = await supabase
+      .from('projects')
+      .update({ is_unlocked: true })
+      .eq('id', projectId);
+    
+    if (error) {
+      console.error('Error unlocking project:', error);
+      return { success: false, error: error.message };
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error in unlockProject:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 // Define our API routes
 router.get('/credits/:userId', async (req, res) => {
   try {
@@ -234,26 +257,3 @@ router.get('/access/:projectId', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-
-/**
- * Helper function to unlock a project
- */
-async function unlockProject(projectId) {
-  try {
-    // Unlock the project
-    const { error } = await supabase
-      .from('projects')
-      .update({ is_unlocked: true })
-      .eq('id', projectId);
-    
-    if (error) {
-      console.error('Error unlocking project:', error);
-      return { success: false, error: error.message };
-    }
-    
-    return { success: true };
-  } catch (error) {
-    console.error('Error in unlockProject:', error);
-    return { success: false, error: error.message };
-  }
-}

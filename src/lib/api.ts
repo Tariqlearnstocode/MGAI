@@ -99,3 +99,97 @@ export async function applyAgencyPackToProject(userId: string, projectId: string
     return false;
   }
 } 
+
+/**
+ * Gets a user's credit balance
+ * @param userId The user ID
+ * @returns The credit balance and customer ID
+ */
+export async function getCreditBalance(userId: string): Promise<{creditBalance: number, customerId?: string}> {
+  try {
+    const response = await fetch(`/api/payments/credits/${userId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to fetch credit balance');
+    }
+
+    const data = await response.json();
+    return { 
+      creditBalance: data.creditBalance || 0,
+      customerId: data.customerId
+    };
+  } catch (error) {
+    console.error('Error fetching credit balance:', error);
+    return { creditBalance: 0 };
+  }
+}
+
+/**
+ * Applies a credit to unlock a project
+ * @param customerId The customer ID
+ * @param projectId The project ID
+ * @returns Object indicating success and new credit balance
+ */
+export async function applyCredit(customerId: string, projectId: string): Promise<{success: boolean, creditBalance?: number, message?: string}> {
+  try {
+    const response = await fetch('/api/payments/apply-credit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ customerId, projectId }),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      return { 
+        success: false, 
+        message: data.message || data.error || 'Failed to apply credit',
+        creditBalance: data.creditBalance
+      };
+    }
+
+    return { 
+      success: data.success, 
+      creditBalance: data.creditBalance,
+      message: data.message
+    };
+  } catch (error) {
+    console.error('Error applying credit:', error);
+    return { success: false, message: 'Error applying credit' };
+  }
+}
+
+/**
+ * Checks if a project is unlocked
+ * @param projectId The project ID
+ * @returns Boolean indicating if project is unlocked
+ */
+export async function checkProjectAccess(projectId: string): Promise<boolean> {
+  try {
+    const response = await fetch(`/api/payments/access/${projectId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to check project access');
+    }
+
+    const data = await response.json();
+    return data.access || false;
+  } catch (error) {
+    console.error('Error checking project access:', error);
+    return false;
+  }
+}

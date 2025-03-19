@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { usePayment } from '@/contexts/PaymentContext';
 import { Button } from '@/components/ui/button';
-import { Lock, CheckCircle, Users, ArrowRight, Sparkles } from 'lucide-react';
+import { Lock, CheckCircle, Users, ArrowRight, Sparkles, CreditCard } from 'lucide-react';
 
 interface PreviewOverlayProps {
   projectId: string;
@@ -10,7 +10,7 @@ interface PreviewOverlayProps {
 }
 
 export default function PreviewOverlay({ projectId, documentType, previewPercentage }: PreviewOverlayProps) {
-  const { loadingProducts, initiateCheckout, applyAgencyPackToProject } = usePayment();
+  const { loadingProducts, initiateCheckout, applyAgencyPackToProject, applyCreditToProject, creditBalance } = usePayment();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -42,6 +42,14 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
           setSuccess('Agency pack applied successfully! Refresh the page to see your full document.');
         } else {
           setError('Failed to apply agency pack. Do you have any available packs?');
+        }
+      } else if (productId === 'use_credits') {
+        // Apply credits to unlock this project
+        const result = await applyCreditToProject(projectId);
+        if (result.success) {
+          setSuccess('Credits applied successfully! Refresh the page to see your full document.');
+        } else {
+          setError(result.message || 'Failed to apply credits. Do you have enough credits?');
         }
       } else {
         // Start a checkout process
@@ -211,6 +219,24 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
                 </div>
               </div>
             </div>
+
+            {/* Credits section if user has credits */}
+            {creditBalance > 0 && (
+              <div className="mt-6 max-w-3xl mx-auto bg-white border rounded-lg p-4 text-center">
+                <h3 className="text-lg font-semibold mb-2 flex items-center justify-center">
+                  <CreditCard className="h-5 w-5 text-green-500 mr-2" />
+                  Use Your Credits
+                </h3>
+                <p className="text-sm text-gray-600 mb-3">You have {creditBalance} credit{creditBalance !== 1 ? 's' : ''} available</p>
+                <Button
+                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-2"
+                  onClick={() => handleCheckout('use_credits')}
+                  disabled={loading !== null}
+                >
+                  {loading === 'use_credits' ? 'Processing...' : 'Unlock with Credits'}
+                </Button>
+              </div>
+            )}
 
             {/* Secure Payment Notice */}
             <div className="mt-4 text-center">
