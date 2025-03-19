@@ -274,6 +274,7 @@ async function handleCompletedCheckout(session) {
     }
     
     // First update credit balance (for complete_guide and agency_pack)
+    // Note: handleSuccessfulPayment also unlocks the project if needed
     const creditResult = await handleSuccessfulPayment(session);
     if (!creditResult.success) {
       console.error('Error updating credit balance:', creditResult.error);
@@ -282,59 +283,47 @@ async function handleCompletedCheckout(session) {
       console.log(`Updated credit balance to ${creditResult.creditBalance}`);
     }
     
-    // Set product-specific values
+    // For single_plan, make sure the project is unlocked - in case handleSuccessfulPayment doesn't do it
+    if (productId === 'single_plan' && projectId) {
+      // Add an explicit unlock for single_plan since it doesn't go through the credit system
+      try {
+        const { error } = await supabase
+          .from('projects')
+          .update({ is_unlocked: true })
+          .eq('id', projectId);
+        
+        if (error) {
+          console.error('Error explicitly unlocking project for single_plan:', error);
+        } else {
+          console.log(`Project ${projectId} explicitly unlocked for single_plan purchase`);
+        }
+      } catch (unlockError) {
+        console.error('Exception unlocking project for single_plan:', unlockError);
+      }
+    }
+    
+    // Set product-specific values for purchase record
     let remainingUses = null;
     let usedForProjects = [];
     
-    // Handle different product types
-    switch(productId) {
-      case 'agency_pack':
-        console.log('Processing agency pack purchase');
-        remainingUses = 10;
-        
-        // If projectId is specified, use one pack for this project
-        if (projectId) {
-          remainingUses = 9;
-          usedForProjects = [projectId];
-          console.log(`Agency pack applied to project ${projectId}, 9 uses remaining`);
-        }
-        break;
-        
-      case 'complete_guide':
-        console.log('Processing complete guide purchase');
-        if (projectId) {
-          usedForProjects = [projectId];
-          console.log(`Complete guide applied to project ${projectId}`);
-        }
-        break;
-        
-      case 'single_plan':
-        console.log('Processing single plan purchase');
-        if (projectId) {
-          usedForProjects = [projectId];
-          console.log(`Single plan applied to project ${projectId}`);
-        }
-        break;
-        
-      default:
-        console.log(`Unknown product type: ${productId}`);
-    }
-    
-    // Ensure we have the transaction ID
-    const transactionId = session.payment_intent || session.id;
-    console.log(`Transaction ID: ${transactionId}`);
-    
-    // Check if this purchase already exists
-    const { data: existingPurchase, error: checkError } = await supabase
-      .from('purchases')
-      .select('id')
-      .eq('stripe_transaction_id', transactionId)
-      .limit(1);
+    // For agency pack, set initial values
+    if (productId === 'agency_pack') {
+      remainingUses = 10;
       
-    if (!checkError && existingPurchase && existingPurchase.length > 0) {
-      console.log(`Purchase already recorded with ID: ${existingPurchase[0].id}`);
-      return;
+      // If projectId is specified, use one pack for this project
+      if (projectId) {
+        remainingUses = 9;
+        usedForProjects = [projectId];
+      }
     }
+    
+    // For complete_guide or single_plan, add the specific project
+    if ((productId === 'complete_guide' || productId === 'single_plan') && projectId) {
+      usedForProjects = [projectId];
+    }
+    
+    // Get transaction ID from payment intent or just session ID
+    const transactionId = session.payment_intent || session.id;
     
     // Record the purchase
     const { data, error } = await supabase

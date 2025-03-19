@@ -44,7 +44,7 @@ interface PaymentContextType {
   creditBalance: number;
   customerId: string | null;
   loadingCreditBalance: boolean;
-  checkDocumentAccess: (documentType: string, projectId: string) => boolean;
+  checkDocumentAccess: (documentType: string, projectId: string) => Promise<boolean>;
   getPreviewPercentage: (documentType: string) => number;
   initiateCheckout: (productId: string, projectId?: string) => Promise<void>;
   applyAgencyPackToProject: (projectId: string) => Promise<boolean>;
@@ -158,47 +158,69 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
     checkProjectsUnlocked();
   }, [user]);
 
-  const checkDocumentAccess = (documentType: string, projectId: string): boolean => {
+  const checkDocumentAccess = async (documentType: string, projectId: string): Promise<boolean> => {
     if (!user || loadingPurchases) return false;
     
-    // Case 0: Check if project is unlocked via credits in the database
-    if (unlockedProjects[projectId]) {
-      console.log(`Project ${projectId} is unlocked via credits`);
-      return true;
+    try {
+      // First check if project is unlocked in the database (most authoritative source)
+      const { data: project, error } = await supabase
+        .from('projects')
+        .select('is_unlocked')
+        .eq('id', projectId)
+        .maybeSingle();
+        
+      if (!error && project && project.is_unlocked) {
+        console.log(`Project ${projectId} is unlocked via database check`);
+        // Update local state to match reality
+        setUnlockedProjects(prev => ({
+          ...prev,
+          [projectId]: true
+        }));
+        return true;
+      }
+      
+      // Check if project is unlocked in local state
+      if (unlockedProjects[projectId]) {
+        console.log(`Project ${projectId} is unlocked in local state`);
+        return true;
+      }
+      
+      // Check for any completed purchase records
+      if (purchases.length === 0) return false;
+      
+      // Case 1: User has an active 'complete_guide' purchase for this project
+      const hasCompleteGuide = purchases.some((purchase: Purchase) => 
+        purchase.product_id === 'complete_guide' && 
+        purchase.status === 'active' &&
+        (purchase.used_for_projects?.includes(projectId) || !purchase.used_for_projects)
+      );
+      
+      if (hasCompleteGuide) return true;
+      
+      // Case 2: User has an active 'single_plan' purchase for this specific document
+      const hasSinglePlan = purchases.some((purchase: Purchase) => 
+        purchase.product_id === 'single_plan' && 
+        purchase.status === 'active' &&
+        purchase.used_for_projects?.includes(projectId)
+      );
+      
+      if (hasSinglePlan) return true;
+      
+      // Case 3: User has an agency pack that has been applied to this project
+      const hasAgencyPack = purchases.some((purchase: Purchase) => 
+        purchase.product_id === 'agency_pack' && 
+        purchase.status === 'active' &&
+        purchase.used_for_projects?.includes(projectId)
+      );
+      
+      if (hasAgencyPack) return true;
+      
+      // No valid purchase found
+      return false;
+    } catch (error) {
+      console.error('Error checking document access:', error);
+      return false;
     }
-    
-    // Check for any completed purchase records
-    if (purchases.length === 0) return false;
-    
-    // Case 1: User has an active 'complete_guide' purchase for this project
-    const hasCompleteGuide = purchases.some((purchase: Purchase) => 
-      purchase.product_id === 'complete_guide' && 
-      purchase.status === 'active' &&
-      (purchase.used_for_projects?.includes(projectId) || !purchase.used_for_projects)
-    );
-    
-    if (hasCompleteGuide) return true;
-    
-    // Case 2: User has an active 'single_plan' purchase for this specific document
-    const hasSinglePlan = purchases.some((purchase: Purchase) => 
-      purchase.product_id === 'single_plan' && 
-      purchase.status === 'active' &&
-      purchase.used_for_projects?.includes(projectId)
-    );
-    
-    if (hasSinglePlan) return true;
-    
-    // Case 3: User has an agency pack that has been applied to this project
-    const hasAgencyPack = purchases.some((purchase: Purchase) => 
-      purchase.product_id === 'agency_pack' && 
-      purchase.status === 'active' &&
-      purchase.used_for_projects?.includes(projectId)
-    );
-    
-    if (hasAgencyPack) return true;
-    
-    // No valid purchase found
-    return false;
   };
   
   // Get the percentage of a document that should be visible in preview mode

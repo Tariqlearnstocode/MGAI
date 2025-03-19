@@ -107,6 +107,7 @@ export async function applyAgencyPackToProject(userId: string, projectId: string
  */
 export async function getCreditBalance(userId: string): Promise<{creditBalance: number, customerId?: string}> {
   try {
+    console.log(`Fetching credit balance for user: ${userId}`);
     const response = await fetch(`/api/payments/credits/${userId}`, {
       method: 'GET',
       headers: {
@@ -116,10 +117,13 @@ export async function getCreditBalance(userId: string): Promise<{creditBalance: 
 
     if (!response.ok) {
       const errorData = await response.json();
+      console.error('Error response from credits API:', errorData);
       throw new Error(errorData.error || 'Failed to fetch credit balance');
     }
 
     const data = await response.json();
+    console.log('Credit balance API response:', data);
+    
     return { 
       creditBalance: data.creditBalance || 0,
       customerId: data.customerId

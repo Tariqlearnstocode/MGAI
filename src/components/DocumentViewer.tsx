@@ -66,7 +66,7 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
         setInitialDocument(doc);
         
         // Check if user has access to this document
-        const hasAccess = checkDocumentAccess(doc.type, doc.project_id);
+        const hasAccess = await checkDocumentAccess(doc.type, doc.project_id);
         setHasFullAccess(hasAccess);
         
         // Log the document order-based preview percentage

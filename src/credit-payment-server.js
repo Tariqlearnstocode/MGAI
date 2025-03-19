@@ -36,7 +36,7 @@ export function configureCreditRoutes(app) {
  */
 export async function handleSuccessfulPayment(session) {
   try {
-    const { userId, productId } = session.metadata;
+    const { userId, productId, projectId } = session.metadata;
     
     if (!userId || !productId) {
       console.error('Missing userId or productId in session metadata');
@@ -49,12 +49,14 @@ export async function handleSuccessfulPayment(session) {
     // Determine credits to add based on product
     const creditsToAdd = PRODUCT_CREDIT_VALUES[productId] || 0;
     
+    let newBalance = 0;
+    
     if (creditsToAdd > 0) {
       // Fetch current credit balance
       const { data: customer, error: fetchError } = await supabase
         .from('stripe_customers')
         .select('credit_balance')
-        .eq('customer_id', customerId)
+        .eq('stripe_customer_id', customerId)
         .maybeSingle();
       
       if (fetchError) {
@@ -63,13 +65,13 @@ export async function handleSuccessfulPayment(session) {
       }
       
       const currentBalance = customer?.credit_balance || 0;
-      const newBalance = currentBalance + creditsToAdd;
+      newBalance = currentBalance + creditsToAdd;
       
       // Update credit balance
       const { error: updateError } = await supabase
         .from('stripe_customers')
         .update({ credit_balance: newBalance })
-        .eq('customer_id', customerId);
+        .eq('stripe_customer_id', customerId);
       
       if (updateError) {
         console.error('Error updating credit balance:', updateError);
@@ -77,16 +79,19 @@ export async function handleSuccessfulPayment(session) {
       }
       
       console.log(`Added ${creditsToAdd} credits to customer ${customerId}. New balance: ${newBalance}`);
-      
-      // If the product is 'complete_guide' and has a projectId, unlock that project
-      if (productId === 'complete_guide' && session.metadata.projectId) {
-        await unlockProject(session.metadata.projectId);
-      }
-      
-      return { success: true, creditBalance: newBalance };
     }
     
-    return { success: true };
+    // Always unlock the project if projectId is provided, regardless of product type
+    if (projectId) {
+      const unlockResult = await unlockProject(projectId);
+      if (!unlockResult.success) {
+        console.error('Error unlocking project:', unlockResult.error);
+      } else {
+        console.log(`Project ${projectId} unlocked successfully`);
+      }
+    }
+    
+    return { success: true, creditBalance: creditsToAdd > 0 ? newBalance : undefined };
   } catch (error) {
     console.error('Error processing payment for credits:', error);
     return { success: false, error: error.message };
@@ -128,7 +133,7 @@ router.get('/credits/:userId', async (req, res) => {
     // Get customer
     const { data: customer, error } = await supabase
       .from('stripe_customers')
-      .select('credit_balance, customer_id')
+      .select('credit_balance, stripe_customer_id')
       .eq('user_id', userId)
       .maybeSingle();
     
@@ -141,7 +146,7 @@ router.get('/credits/:userId', async (req, res) => {
       return res.json({ creditBalance: 0 });
     }
     
-    res.json({ creditBalance: customer.credit_balance || 0, customerId: customer.customer_id });
+    res.json({ creditBalance: customer.credit_balance || 0, customerId: customer.stripe_customer_id });
   } catch (error) {
     console.error('Error fetching credit balance:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -163,7 +168,7 @@ router.post('/apply-credit', async (req, res) => {
     const { data: customer, error: fetchError } = await supabase
       .from('stripe_customers')
       .select('credit_balance')
-      .eq('customer_id', customerId)
+      .eq('stripe_customer_id', customerId)
       .maybeSingle();
     
     if (fetchError) {
@@ -193,7 +198,7 @@ router.post('/apply-credit', async (req, res) => {
     const { error: updateError } = await supabase
       .from('stripe_customers')
       .update({ credit_balance: newBalance })
-      .eq('customer_id', customerId);
+      .eq('stripe_customer_id', customerId);
     
     if (updateError) {
       console.error('Error updating credit balance:', updateError);
@@ -208,7 +213,7 @@ router.post('/apply-credit', async (req, res) => {
       await supabase
         .from('stripe_customers')
         .update({ credit_balance: creditBalance })
-        .eq('customer_id', customerId);
+        .eq('stripe_customer_id', customerId);
       
       return res.status(500).json({ success: false, error: unlockResult.error });
     }
@@ -235,6 +240,8 @@ router.get('/access/:projectId', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Project ID is required' });
     }
     
+    console.log(`Checking access for project: ${projectId}`);
+    
     // Check if project is unlocked
     const { data: project, error } = await supabase
       .from('projects')
@@ -248,9 +255,11 @@ router.get('/access/:projectId', async (req, res) => {
     }
     
     if (!project) {
+      console.log(`Project ${projectId} not found`);
       return res.json({ access: false });
     }
     
+    console.log(`Project ${projectId} unlock status: ${project.is_unlocked}`);
     res.json({ access: project.is_unlocked || false });
   } catch (error) {
     console.error('Error checking project access:', error);
