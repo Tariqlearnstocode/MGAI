@@ -32,12 +32,22 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
     return () => {
       window.removeEventListener('resize', checkScreenSize);
     };
-  });
-
+  }, []);
+  
   const handleCheckout = async (productId: string) => {
     setLoading(productId);
     setError(null);
-  }
+    
+    try {
+      await initiateCheckout(productId, projectId);
+      // The page will be redirected to Stripe checkout, so we don't need to set success
+    } catch (err) {
+      setError('Error initiating checkout');
+      console.error(err);
+    } finally {
+      setLoading(null);
+    }
+  };
 
   const getProductFeatures = (productId: string) => {
     switch (productId) {
@@ -63,28 +73,15 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
   };
 
   return (
-    <div className="absolute inset-0 pointer-events-none">
-      {/* Gradient overlay */}
-      <div 
-        className="absolute inset-x-0 bottom-0 bg-gradient-to-b from-transparent via-white/90 to-white z-10" 
-        style={{ 
-          top: `${previewPercentage}%`,
-          background: 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.8) 15%, rgba(255,255,255,0.95) 40%, rgba(255,255,255,1) 100%)' 
-        }}
-      />
-      
-      {/* Paywall section */}
-      <div 
-        className="absolute left-0 right-0 flex flex-col items-center justify-center text-center px-2 z-20 pointer-events-auto"
-        style={{ top: `${previewPercentage + 10}%` }}
-      >
-        <div className="mb-6 px-8 py-6 rounded-lg bg-white/95 backdrop-blur-sm shadow-lg max-w-2xl mx-auto">
-          <div className="h-16 w-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Lock className="h-8 w-8 text-blue-600" />
-          </div>
-          <h3 className="text-2xl font-bold mb-3">Preview Mode</h3>
-          <p className="text-gray-600 mb-4 text-lg">
-            You've reached the end of the preview. This is a demonstration of the paywall feature.
+    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex flex-col items-center justify-center text-white z-50">
+      <div className="w-full max-w-4xl p-6">
+        <div className="text-center mb-8">
+          <Lock className="h-12 w-12 mx-auto mb-2 text-white/80" />
+          <h2 className="text-2xl md:text-3xl font-bold">
+            Unlock Full Document
+          </h2>
+          <p className="text-lg text-white/80 max-w-xl mx-auto">
+            You've seen {previewPercentage}% of this document. Purchase a plan to access the complete content.
           </p>
         </div>
         

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { usePayment } from '@/contexts/PaymentContext';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Shield, Users, ArrowRight, Sparkles } from 'lucide-react';
+import { usePayment } from '@/contexts/PaymentContext';
 
 interface DocumentPaywallProps {
   projectId: string;
@@ -9,30 +9,19 @@ interface DocumentPaywallProps {
 }
 
 export default function DocumentPaywall({ projectId }: DocumentPaywallProps) {
-  const { loadingProducts, initiateCheckout, applyAgencyPackToProject } = usePayment();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const { loadingProducts, initiateCheckout } = usePayment();
 
   const handleCheckout = async (productId: string) => {
     setLoading(productId);
     setError(null);
-    
     try {
-      if (productId === 'agency_pack_apply') {
-        // Apply an existing agency pack
-        const result = await applyAgencyPackToProject(projectId);
-        if (result) {
-          setSuccess('Agency pack applied successfully! Refresh the page to see your full document.');
-        } else {
-          setError('Failed to apply agency pack. Do you have any available packs?');
-        }
-      } else {
-        // Start a checkout process
-        await initiateCheckout(productId, projectId);
-      }
+      await initiateCheckout(productId, projectId);
+      // The page will be redirected to Stripe checkout, so we don't need to set success
     } catch (err) {
-      setError('Error processing your request. Please try again.');
+      setError('Error initiating checkout. Please try again.');
       console.error(err);
     } finally {
       setLoading(null);
@@ -187,15 +176,6 @@ export default function DocumentPaywall({ projectId }: DocumentPaywallProps) {
               disabled={loading !== null}
             >
               {loading === 'agency_pack' ? 'Processing...' : 'Purchase Pack'}
-            </Button>
-            <Button
-              variant="link"
-              className="w-full mt-2 text-blue-600"
-              onClick={() => handleCheckout('agency_pack_apply')}
-              disabled={loading !== null}
-            >
-              {loading === 'agency_pack_apply' ? 'Applying...' : 'Use existing pack'}
-              <ArrowRight className="ml-1 h-4 w-4" />
             </Button>
           </div>
         </div>

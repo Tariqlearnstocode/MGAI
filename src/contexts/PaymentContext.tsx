@@ -12,8 +12,6 @@ interface PaymentContextType {
   checkDocumentAccess: (documentType: string, projectId: string) => Promise<boolean>;
   getPreviewPercentage: (documentType: string) => number;
   initiateCheckout: (productId: string, projectId: string) => Promise<void>;
-  applyAgencyPackToProject: (projectId: string) => Promise<boolean>;
-  applyCreditToProject: (projectId: string) => Promise<{success: boolean, message?: string}>;
 }
 
 const PaymentContext = createContext<PaymentContextType | undefined>(undefined);
@@ -65,27 +63,51 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
 
   // Mock function for initiating checkout
   const initiateCheckout = async (productId: string, projectId: string): Promise<void> => {
-    console.log(`Mock checkout initiated for product: ${productId}, project: ${projectId}`);
-    return Promise.resolve();
-  };
-
-  // Mock function for applying agency pack to project
-  const applyAgencyPackToProject = async (projectId: string): Promise<boolean> => {
-    console.log(`Mock apply agency pack to project: ${projectId}`);
-    return Promise.resolve(true);
-  };
-
-  // Mock function for applying credit to project
-  const applyCreditToProject = async (projectId: string): Promise<{success: boolean, message?: string}> => {
-    console.log(`Mock apply credit to project: ${projectId}`);
-    if (creditBalance > 0) {
-      setCreditBalance(creditBalance - 1);
-      return Promise.resolve({ success: true });
+    setLoadingProducts(true);
+    
+    try {
+      // Map product IDs to Stripe price IDs
+      // These would need to be your actual Stripe price IDs
+      const priceMap: Record<string, string> = {
+        'complete_guide': 'price_1R2wrwENRbwTo9ZjYZjz1oRS',
+        'agency_pack': 'price_1R2wrwENRbwTo9ZjeIIAIqRV',
+      };
+      
+      const priceId = priceMap[productId];
+      
+      if (!priceId) {
+        throw new Error(`No price found for product: ${productId}`);
+      }
+      
+      // Create checkout session
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          priceId,
+          productId,
+          projectId,
+          userId: user?.id,
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create checkout session');
+      }
+      
+      const session = await response.json();
+      
+      // Redirect to checkout
+      window.location.href = session.url;
+    } catch (error) {
+      console.error('Checkout error:', error);
+      throw error;
+    } finally {
+      setLoadingProducts(false);
     }
-    return Promise.resolve({ 
-      success: false, 
-      message: 'Insufficient credits. Please purchase more credits.' 
-    });
   };
 
   return (
@@ -96,9 +118,7 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
       creditBalance,
       checkDocumentAccess,
       getPreviewPercentage,
-      initiateCheckout,
-      applyAgencyPackToProject,
-      applyCreditToProject,
+      initiateCheckout
     }}>
       {children}
     </PaymentContext.Provider>

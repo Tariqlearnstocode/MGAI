@@ -219,6 +219,54 @@ app.post('/api/create-stripe-customer', async (req, res) => {
   }
 });
 
+// Create checkout session endpoint
+app.post('/api/create-checkout-session', async (req, res) => {
+  try {
+    const { priceId, productId, projectId, userId } = req.body;
+
+    if (!priceId || !productId || !userId) {
+      return res.status(400).json({ error: 'Missing required parameters' });
+    }
+
+    // Get Stripe customer ID for the user
+    const { data: customerData, error: customerError } = await supabase
+      .from('stripe_customers')
+      .select('stripe_customer_id')
+      .eq('user_id', userId)
+      .single();
+
+    if (customerError || !customerData?.stripe_customer_id) {
+      console.error('Error fetching Stripe customer:', customerError);
+      return res.status(500).json({ error: 'Failed to retrieve customer data' });
+    }
+
+    // Create Stripe checkout session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      customer: customerData.stripe_customer_id,
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+      mode: 'payment',
+      success_url: `${process.env.VITE_APP_URL}/app/projects/${projectId}/documents?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.VITE_APP_URL}/app/projects/${projectId}/documents?canceled=true`,
+      metadata: {
+        userId,
+        productId,
+        projectId: projectId || '',
+      },
+    });
+
+    return res.status(200).json({ url: session.url });
+  } catch (error) {
+    console.error('Error creating checkout session:', error);
+    return res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
 // Add a simple test endpoint for healthcheck
 app.get('/api/test', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'API is running' });
