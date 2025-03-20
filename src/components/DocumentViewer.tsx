@@ -717,12 +717,14 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
                   if (activeDocument) logPaywallDebug(activeDocument);
                   return renderDocumentContent(activeDocument);
                 })()}
-                <PreviewOverlay 
-                  projectId={activeDocument.project_id}
-                  documentType={activeDocument.type}
-                  previewPercentage={getPreviewPercentage(activeDocument.type)}
-                />
-                </div>
+                {!hasFullAccess && (
+                  <PreviewOverlay 
+                    projectId={activeDocument.project_id}
+                    documentType={activeDocument.type}
+                    previewPercentage={getPreviewPercentage(activeDocument.type)}
+                  />
+                )}
+              </div>
             )}
           </div>
         </div>
