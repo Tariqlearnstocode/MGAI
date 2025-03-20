@@ -114,6 +114,79 @@ app.post('/api/stripe-webhook', express.raw({type: 'application/json'}), async (
       }
     }
     
+    // For checkout.session.completed events, update credits if it's a Complete Guide or Bundle purchase
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      const userId = session.metadata?.userId;
+      const productId = session.metadata?.productId;
+      const lineItems = session.line_items?.data || [];
+      const priceId = lineItems.length > 0 ? lineItems[0]?.price?.id : '';
+      
+      console.log(`Processing checkout.session.completed for user ${userId}, product ${productId}, price ${priceId}`);
+      
+      if (userId) {
+        // Set credits based on the product
+        let creditsToAdd = 0;
+        
+        // Check if it's a Complete Guide or Bundle
+        if (productId && productId.toLowerCase().includes('complete') && !productId.toLowerCase().includes('bundle')) {
+          creditsToAdd = 1; // Complete Guide = 1 credit
+          console.log(`Complete Guide purchased, adding 1 credit for user ${userId}`);
+        } else if (productId && productId.toLowerCase().includes('bundle')) {
+          creditsToAdd = 10; // Bundle = 10 credits
+          console.log(`Bundle purchased, adding 10 credits for user ${userId}`);
+        }
+        
+        if (creditsToAdd > 0) {
+          // Get current customer record
+          const { data: customer, error: fetchError } = await supabase
+            .from('stripe_customers')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
+            
+          if (fetchError) {
+            console.error('Error fetching customer record:', fetchError);
+          } else {
+            // Calculate new credits_purchased value
+            const currentCredits = customer.credits_purchased || 0;
+            const totalCredits = currentCredits + creditsToAdd;
+            
+            // Update the purchase_history
+            let purchaseHistory = customer.purchase_history || [];
+            purchaseHistory.push({
+              id: session.id,
+              date: new Date().toISOString(),
+              amount: session.amount_total,
+              currency: session.currency,
+              product: productId,
+              credits_added: creditsToAdd,
+              status: 'completed'
+            });
+            
+            // Update the customer record
+            const { error: updateError } = await supabase
+              .from('stripe_customers')
+              .update({
+                purchase_history: purchaseHistory,
+                credits_purchased: totalCredits
+              })
+              .eq('user_id', userId);
+              
+            if (updateError) {
+              console.error('Error updating credits for customer:', updateError);
+            } else {
+              console.log(`Successfully updated credits for user ${userId}: added ${creditsToAdd}, total ${totalCredits}`);
+            }
+          }
+        } else {
+          console.log(`No credits to add for this purchase (product: ${productId})`);
+        }
+      } else {
+        console.warn(`Missing userId in checkout session metadata`);
+      }
+    }
+    
     // Return a 200 response to acknowledge receipt of the event
     res.status(200).json({ received: true });
   } catch (error) {
