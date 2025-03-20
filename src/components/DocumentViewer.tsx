@@ -674,6 +674,24 @@ function SingleDocumentViewer({ documentId, projectName }: SingleDocumentViewerP
                   <div className="max-w-lg mx-auto mt-4 sm:mt-8 px-2 sm:px-0">
                     {renderDocumentContent(activeDocument)}
                   </div>
+                ) : activeDocument.type === 'marketing_plan' ? (
+                  // For marketing_plan, show loading status instead of "Ready to Generate"
+                  <div className="max-w-md mx-auto">
+                    <div className="mb-6">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                        Initializing document...
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        Your marketing plan will be generated automatically. Please wait...
+                      </p>
+                    </div>
+                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-blue-500 rounded-full transition-all duration-300 ease-out"
+                        style={{ width: '5%' }}
+                      />
+                    </div>
+                  </div>
                 ) : (
                   <div className="max-w-md mx-auto flex flex-col items-center">
                     <div className="mb-6 text-center">
