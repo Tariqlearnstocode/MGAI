@@ -87,9 +87,29 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  // Check document access - always return false for the paywall
+  // Check document access based on the project's is_unlocked flag
   const checkDocumentAccess = async (documentType: string, projectId: string): Promise<boolean> => {
-    return false; // Always return false to show the paywall
+    if (!projectId) return false;
+    
+    try {
+      // Query the projects table to check if the project is unlocked
+      const { data, error } = await supabase
+        .from('projects')
+        .select('is_unlocked')
+        .eq('id', projectId)
+        .single();
+      
+      if (error) {
+        console.error('Error checking project access:', error);
+        return false;
+      }
+      
+      // Return true if the project is unlocked, false otherwise
+      return data?.is_unlocked === true;
+    } catch (error) {
+      console.error('Error in checkDocumentAccess:', error);
+      return false;
+    }
   };
   
   // Get the percentage of a document that should be visible in preview mode
