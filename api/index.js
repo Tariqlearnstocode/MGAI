@@ -202,5 +202,85 @@ async function getOrCreateStripeCustomer(userId) {
   return newCustomer;
 }
 
+// Handler for checkout.session.completed events
+async function handleCheckoutCompleted(session) {
+  try {
+    // Extract relevant data from the session
+    const { userId, productId } = session.metadata;
+    const priceId = session.line_items?.data[0]?.price?.id || '';
+    
+    if (!userId) {
+      console.error('Missing userId in checkout session:', session.id);
+      return;
+    }
+    
+    console.log(`Processing checkout completion for user ${userId}, product ${productId}, price ${priceId}`);
+    
+    // Set credits based on price ID
+    let creditsToAdd = 0;
+    
+    // Price ID mapping - replace these with your actual price IDs
+    if (priceId === 'price_complete_guide' || priceId.includes('complete') && !priceId.includes('bundle')) {
+      creditsToAdd = 1; // Complete Guide
+      console.log(`Complete Guide purchased (${priceId}), adding 1 credit`);
+    } else if (priceId === 'price_bundle' || priceId.includes('bundle')) {
+      creditsToAdd = 10; // Bundle
+      console.log(`Bundle purchased (${priceId}), adding 10 credits`);
+    } else {
+      console.log(`Non-credit product purchased (${priceId}), no credits added`);
+      return;
+    }
+    
+    if (creditsToAdd > 0) {
+      // Get the current user record
+      const { data: customer, error: fetchError } = await supabase
+        .from('stripe_customers')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+      
+      if (fetchError) {
+        console.error('Error fetching customer record:', fetchError);
+        return;
+      }
+      
+      // Update the purchase_history to include credits
+      let purchaseHistory = customer.purchase_history || [];
+      
+      // Add the new purchase with credit information
+      purchaseHistory.push({
+        id: session.id,
+        date: new Date().toISOString(),
+        amount: session.amount_total,
+        currency: session.currency,
+        product: productId,
+        price: priceId,
+        credits_added: creditsToAdd,
+        status: 'completed'
+      });
+      
+      // Calculate total credits purchased (lifetime total)
+      let totalCreditsPurchased = (customer.credits_purchased || 0) + creditsToAdd;
+      
+      // Update the credits_purchased column
+      const { error: updateError } = await supabase
+        .from('stripe_customers')
+        .update({
+          purchase_history: purchaseHistory,
+          credits_purchased: totalCreditsPurchased
+        })
+        .eq('user_id', userId);
+      
+      if (updateError) {
+        console.error('Error updating customer credits:', updateError);
+      } else {
+        console.log(`Successfully updated credits purchased for user ${userId}: ${totalCreditsPurchased} total credits purchased`);
+      }
+    }
+  } catch (error) {
+    console.error('Error in handleCheckoutCompleted:', error);
+  }
+}
+
 // Export the Express API
 export default app; 
