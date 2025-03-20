@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { usePayment } from '@/contexts/PaymentContext';
+import { Lock, CheckCircle, Sparkles, Users, ArrowRight, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Lock, CheckCircle, Users, ArrowRight, Sparkles, CreditCard } from 'lucide-react';
 
 interface PreviewOverlayProps {
   projectId: string;
@@ -10,11 +10,15 @@ interface PreviewOverlayProps {
 }
 
 export default function PreviewOverlay({ projectId, documentType, previewPercentage }: PreviewOverlayProps) {
-  const { loadingProducts, initiateCheckout, applyAgencyPackToProject, applyCreditToProject, creditBalance } = usePayment();
+  const [isMobile, setIsMobile] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
+  
+  const { 
+    loadingProducts, 
+    initiateCheckout, 
+  } = usePayment();
   
   // Check if mobile
   useEffect(() => {
@@ -33,46 +37,10 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
   const handleCheckout = async (productId: string) => {
     setLoading(productId);
     setError(null);
-    
-    try {
-      if (productId === 'agency_pack_apply') {
-        // Apply an existing agency pack
-        const result = await applyAgencyPackToProject(projectId);
-        if (result) {
-          setSuccess('Agency pack applied successfully! Refresh the page to see your full document.');
-        } else {
-          setError('Failed to apply agency pack. Do you have any available packs?');
-        }
-      } else if (productId === 'use_credits') {
-        // Apply credits to unlock this project
-        const result = await applyCreditToProject(projectId);
-        if (result.success) {
-          setSuccess('Credits applied successfully! Refresh the page to see your full document.');
-        } else {
-          setError(result.message || 'Failed to apply credits. Do you have enough credits?');
-        }
-      } else {
-        // Start a checkout process
-        await initiateCheckout(productId, projectId);
-      }
-    } catch (err) {
-      setError('Error processing your request. Please try again.');
-      console.error(err);
-    } finally {
-      setLoading(null);
-    }
-  };
+  }
 
   const getProductFeatures = (productId: string) => {
     switch (productId) {
-      case 'single_plan':
-        return [
-          'Access to this document only',
-          'One-time payment',
-          'Lifetime updates to this document',
-          'Download as PDF/Word',
-          'AI-powered content'
-        ];
       case 'complete_guide':
         return [
           'Full access to ALL documents',
@@ -110,13 +78,13 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
         className="absolute left-0 right-0 flex flex-col items-center justify-center text-center px-2 z-20 pointer-events-auto"
         style={{ top: `${previewPercentage + 10}%` }}
       >
-        <div className="mb-6 px-4 py-2 rounded-lg bg-white/80 backdrop-blur-sm inline-block mx-auto">
-          <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
-            <Lock className="h-6 w-6 text-blue-600" />
+        <div className="mb-6 px-8 py-6 rounded-lg bg-white/95 backdrop-blur-sm shadow-lg max-w-2xl mx-auto">
+          <div className="h-16 w-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Lock className="h-8 w-8 text-blue-600" />
           </div>
-          <h3 className="text-xl font-bold mb-2">Preview Mode</h3>
-          <p className="text-gray-600 mb-0 max-w-2xl mx-auto">
-            You've reached the end of the preview. Upgrade to get access to all content.
+          <h3 className="text-2xl font-bold mb-3">Preview Mode</h3>
+          <p className="text-gray-600 mb-4 text-lg">
+            You've reached the end of the preview. This is a demonstration of the paywall feature.
           </p>
         </div>
         
@@ -219,24 +187,6 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
                 </div>
               </div>
             </div>
-
-            {/* Credits section if user has credits */}
-            {creditBalance > 0 && (
-              <div className="mt-6 max-w-3xl mx-auto bg-white border rounded-lg p-4 text-center">
-                <h3 className="text-lg font-semibold mb-2 flex items-center justify-center">
-                  <CreditCard className="h-5 w-5 text-green-500 mr-2" />
-                  Use Your Credits
-                </h3>
-                <p className="text-sm text-gray-600 mb-3">You have {creditBalance} credit{creditBalance !== 1 ? 's' : ''} available</p>
-                <Button
-                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-2"
-                  onClick={() => handleCheckout('use_credits')}
-                  disabled={loading !== null}
-                >
-                  {loading === 'use_credits' ? 'Processing...' : 'Unlock with Credits'}
-                </Button>
-              </div>
-            )}
 
             {/* Secure Payment Notice */}
             <div className="mt-4 text-center">

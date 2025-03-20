@@ -4,8 +4,6 @@ import { createClient } from '@supabase/supabase-js';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import OpenAI from 'openai';
-import { configurePaymentRoutes } from './src/payment-server.js';
-import { configureCreditRoutes } from './src/credit-payment-server.js';
 import Stripe from 'stripe';
 
 // Load environment variables
@@ -130,9 +128,8 @@ app.post('/api/stripe-webhook', express.raw({type: 'application/json'}), async (
   }
 });
 
-// Configure payment routes - MUST come before general JSON body parser
-configurePaymentRoutes(app);
-configureCreditRoutes(app);
+// REMOVED: Configure payment routes
+// REMOVED: configureCreditRoutes(app);
 
 // OpenAI endpoint for content generation
 app.post('/api/generate-content', async (req, res) => {

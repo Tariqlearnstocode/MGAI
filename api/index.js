@@ -26,7 +26,7 @@ const openai = new OpenAI({
 
 // Middleware
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 
 // Stripe webhook endpoint (raw body for signature verification)
 app.use('/api/webhook/stripe', bodyParser.raw({ type: 'application/json' }));
@@ -200,85 +200,6 @@ async function getOrCreateStripeCustomer(userId) {
   }
 
   return newCustomer;
-}
-
-// Helper function to handle checkout.session.completed event
-async function handleCheckoutCompleted(session) {
-  const { userId, productId, projectId } = session.metadata || {};
-  
-  if (!userId || !productId) {
-    console.error('Missing required metadata in checkout session');
-    return;
-  }
-
-  // Default values based on product
-  let remainingUses = null;
-  let usedForProjects = [];
-  
-  // For agency pack, set initial values
-  if (productId === 'agency_pack') {
-    remainingUses = 10;
-    
-    // If projectId is specified, use one pack for this project
-    if (projectId) {
-      remainingUses = 9;
-      usedForProjects = [projectId];
-    }
-  }
-  
-  // For complete_guide, add the specific project
-  if (productId === 'complete_guide' && projectId) {
-    usedForProjects = [projectId];
-  }
-
-  // Record the purchase in the database
-  const { error } = await supabase
-    .from('purchases')
-    .insert({
-      user_id: userId,
-      product_id: productId,
-      status: 'active',
-      stripe_transaction_id: session.payment_intent,
-      stripe_price_id: session.amount_total ? (session.amount_total / 100).toString() : '',
-      remaining_uses: remainingUses,
-      used_for_projects: usedForProjects.length > 0 ? usedForProjects : null,
-    });
-
-  if (error) {
-    console.error('Error recording purchase:', error);
-    throw new Error(`Error recording purchase: ${error.message}`);
-  }
-
-  // Update purchase history in the customer record
-  const { data: customerData, error: customerError } = await supabase
-    .from('stripe_customers')
-    .select('purchase_history')
-    .eq('user_id', userId)
-    .single();
-
-  if (customerError) {
-    console.error('Error fetching customer record:', customerError);
-    return;
-  }
-
-  // Add the new purchase to purchase history
-  const purchaseHistory = customerData.purchase_history || [];
-  purchaseHistory.push({
-    product_id: productId,
-    purchase_date: new Date().toISOString(),
-    amount: session.amount_total ? session.amount_total / 100 : 0,
-    transaction_id: session.payment_intent
-  });
-
-  // Update the customer record
-  const { error: updateError } = await supabase
-    .from('stripe_customers')
-    .update({ purchase_history: purchaseHistory })
-    .eq('user_id', userId);
-
-  if (updateError) {
-    console.error('Error updating customer purchase history:', updateError);
-  }
 }
 
 // Export the Express API
