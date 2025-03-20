@@ -12,7 +12,6 @@ interface PaymentContextType {
   checkDocumentAccess: (documentType: string, projectId: string) => Promise<boolean>;
   getPreviewPercentage: (documentType: string) => number;
   initiateCheckout: (productId: string, projectId: string) => Promise<void>;
-  applyAgencyPackToProject: (projectId: string) => Promise<boolean>;
 }
 
 const PaymentContext = createContext<PaymentContextType | undefined>(undefined);
@@ -70,14 +69,19 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
       // Map product IDs to Stripe price IDs
       // These would need to be your actual Stripe price IDs
       const priceMap: Record<string, string> = {
-        'complete_guide': 'price_1R2wrwENRbwTo9ZjYZjz1oRS',
-        'agency_pack': 'price_1R2wrwENRbwTo9ZjeIIAIqRV',
+        'single_plan': 'price_1R2wrwENRbwTo9ZjYZjz1oRS', // Example ID, replace with actual
+        'complete_guide': 'price_1R2wrwENRbwTo9ZjYZjz1oRS', // Example ID, replace with actual
+        'agency_pack': 'price_1R2wrwENRbwTo9ZjeIIAIqRV', // Example ID, replace with actual
       };
       
       const priceId = priceMap[productId];
       
       if (!priceId) {
         throw new Error(`No price found for product: ${productId}`);
+      }
+      
+      if (!user?.id) {
+        throw new Error('User not authenticated');
       }
       
       // Create checkout session
@@ -90,7 +94,7 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
           priceId,
           productId,
           projectId,
-          userId: user?.id,
+          userId: user.id,
         }),
       });
       
@@ -111,12 +115,6 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Mock function for applying agency pack
-  const applyAgencyPackToProject = async (projectId: string): Promise<boolean> => {
-    console.log(`Mock agency pack application for project: ${projectId}`);
-    return Promise.resolve(true);
-  };
-
   return (
     <PaymentContext.Provider 
       value={{ 
@@ -124,10 +122,9 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
         loadingDocTypes, 
         checkDocumentAccess, 
         getPreviewPercentage,
-        loadingProducts: false,
+        loadingProducts,
         initiateCheckout,
-        creditBalance: 5,
-        applyAgencyPackToProject,
+        creditBalance,
       }}
     >
       {children}

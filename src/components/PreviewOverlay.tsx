@@ -37,6 +37,16 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
   const handleCheckout = async (productId: string) => {
     setLoading(productId);
     setError(null);
+    
+    try {
+      await initiateCheckout(productId, projectId);
+      // We'll be redirected to Stripe checkout
+    } catch (err) {
+      setError('Error initiating checkout. Please try again.');
+      console.error(err);
+    } finally {
+      setLoading(null);
+    }
   }
 
   const getProductFeatures = (productId: string) => {
