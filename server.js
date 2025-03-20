@@ -119,22 +119,40 @@ app.post('/api/stripe-webhook', express.raw({type: 'application/json'}), async (
       const session = event.data.object;
       const userId = session.metadata?.userId;
       const productId = session.metadata?.productId;
-      const lineItems = session.line_items?.data || [];
-      const priceId = lineItems.length > 0 ? lineItems[0]?.price?.id : '';
       
-      console.log(`Processing checkout.session.completed for user ${userId}, product ${productId}, price ${priceId}`);
+      // Access the line items directly from the event
+      // Note: For webhook events, we need to retrieve line items separately
+      const priceId = session.line_items?.data?.[0]?.price?.id || '';
+
+      // If line_items is not available in the webhook payload, use the priceId from metadata
+      const effectivePriceId = priceId || session.metadata?.priceId || '';
+      
+      console.log(`Processing checkout.session.completed for user ${userId}, product ${productId}, price ID: ${effectivePriceId}`);
       
       if (userId) {
-        // Set credits based on the product
+        // Set credits based on the price ID
         let creditsToAdd = 0;
         
-        // Check if it's a Complete Guide or Bundle
-        if (productId && productId.toLowerCase().includes('complete') && !productId.toLowerCase().includes('bundle')) {
-          creditsToAdd = 1; // Complete Guide = 1 credit
-          console.log(`Complete Guide purchased, adding 1 credit for user ${userId}`);
-        } else if (productId && productId.toLowerCase().includes('bundle')) {
-          creditsToAdd = 10; // Bundle = 10 credits
-          console.log(`Bundle purchased, adding 10 credits for user ${userId}`);
+        // Map of price IDs to credits - add your actual price IDs here
+        const priceIdMap = {
+          'price_1PpgpaPDJQNMUB0yQMZLGYnC': 1,  // Complete Guide price ID
+          'price_1PpgqFPDJQNMUB0yVYgnJbYx': 10, // Agency Pack/Bundle price ID
+          // Add any other price IDs here
+        };
+        
+        // Fallback to product name check if priceId matching fails
+        if (priceIdMap[effectivePriceId]) {
+          creditsToAdd = priceIdMap[effectivePriceId];
+          console.log(`Matched price ID ${effectivePriceId}, adding ${creditsToAdd} credits`);
+        } else if (productId) {
+          // Fallback to the product name check (keeping your existing logic as backup)
+          if (productId.toLowerCase().includes('complete') && !productId.toLowerCase().includes('agency') && !productId.toLowerCase().includes('bundle')) {
+            creditsToAdd = 1; // Complete Guide = 1 credit
+            console.log(`Complete Guide detected from product name, adding 1 credit for user ${userId}`);
+          } else if (productId.toLowerCase().includes('agency') || productId.toLowerCase().includes('bundle')) {
+            creditsToAdd = 10; // Agency Pack/Bundle = 10 credits
+            console.log(`Agency Pack detected from product name, adding 10 credits for user ${userId}`);
+          }
         }
         
         if (creditsToAdd > 0) {
@@ -160,6 +178,7 @@ app.post('/api/stripe-webhook', express.raw({type: 'application/json'}), async (
               amount: session.amount_total,
               currency: session.currency,
               product: productId,
+              price_id: effectivePriceId,
               credits_added: creditsToAdd,
               status: 'completed'
             });
@@ -180,7 +199,7 @@ app.post('/api/stripe-webhook', express.raw({type: 'application/json'}), async (
             }
           }
         } else {
-          console.log(`No credits to add for this purchase (product: ${productId})`);
+          console.log(`No credits to add for this purchase (product: ${productId}, price: ${effectivePriceId})`);
         }
       } else {
         console.warn(`Missing userId in checkout session metadata`);
