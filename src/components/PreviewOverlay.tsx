@@ -32,22 +32,12 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
     return () => {
       window.removeEventListener('resize', checkScreenSize);
     };
-  }, []);
-  
+  });
+
   const handleCheckout = async (productId: string) => {
     setLoading(productId);
     setError(null);
-    
-    try {
-      await initiateCheckout(productId, projectId);
-      // The page will be redirected to Stripe checkout, so we don't need to set success
-    } catch (err) {
-      setError('Error initiating checkout');
-      console.error(err);
-    } finally {
-      setLoading(null);
-    }
-  };
+  }
 
   const getProductFeatures = (productId: string) => {
     switch (productId) {
@@ -73,115 +63,113 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
   };
 
   return (
-    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex flex-col items-center justify-center text-white z-50">
-      <div className="w-full max-w-4xl p-6">
-        <div className="text-center mb-8">
-          <Lock className="h-12 w-12 mx-auto mb-2 text-white/80" />
-          <h2 className="text-2xl md:text-3xl font-bold">
-            Unlock Full Document
-          </h2>
-          <p className="text-lg text-white/80 max-w-xl mx-auto">
-            You've seen {previewPercentage}% of this document. Purchase a plan to access the complete content.
+    <div className="absolute inset-0 pointer-events-none">
+      {/* Gradient overlay */}
+      <div 
+        className="absolute inset-x-0 bottom-0 bg-gradient-to-b from-transparent via-white/90 to-white z-10"
+        style={{ 
+          top: `${previewPercentage}%`,
+          background: 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.8) 15%, rgba(255,255,255,0.95) 40%, rgba(255,255,255,1) 100%)'
+        }}
+      />
+      
+      {/* Paywall section */}
+      <div 
+        className="absolute left-0 right-0 flex flex-col items-center justify-center text-center px-2 z-20 pointer-events-auto"
+        style={{ top: `${previewPercentage + 10}%` }}
+      >
+        <div className="mb-6 px-8 py-6 rounded-lg bg-white/95 backdrop-blur-sm shadow-lg max-w-2xl mx-auto">
+          <div className="h-16 w-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Lock className="h-8 w-8 text-blue-600" />
+          </div>
+          <h3 className="text-2xl font-bold mb-3">Preview Mode</h3>
+          <p className="text-gray-600 mb-4 text-lg">
+            You've reached the end of the preview. This is a demonstration of the paywall feature.
           </p>
         </div>
         
-        {/* Payment options directly embedded */}
+        {/* Payment options */}
         {loadingProducts ? (
-          <div className="flex justify-center items-center p-4">
+          <div className="flex justify-center items-center p-8 pointer-events-auto">
             <div className="animate-spin h-8 w-8 border-4 border-blue-500 rounded-full border-t-transparent"></div>
           </div>
         ) : (
-          <div className="max-w-5xl w-full">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto pointer-events-auto">
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4 text-red-600 text-sm">
+              <div className="col-span-full bg-red-50 border border-red-200 rounded-md p-3 mb-2 text-red-600">
                 {error}
               </div>
             )}
-
+            
             {success && (
-              <div className="bg-green-50 border border-green-200 rounded-md p-3 mb-4 text-green-600 text-sm">
+              <div className="col-span-full bg-green-50 border border-green-200 rounded-md p-3 mb-2 text-green-600">
                 {success}
               </div>
             )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mx-auto max-w-3xl">
-              {/* Complete Guide */}
-              <div className="border rounded-lg overflow-hidden bg-white shadow-sm h-full">
-                <div className="p-5 bg-white h-full flex flex-col">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className="text-lg font-semibold">Complete Guide</h3>
-                      <p className="text-gray-500 text-sm">All project documents</p>
-                    </div>
-                    <Sparkles className="h-6 w-6 text-blue-500" />
+            
+            {/* Complete Guide */}
+            <div className="bg-white rounded-lg shadow-md overflow-hidden">
+              <div className="p-5">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="text-lg font-semibold">Complete Guide</h3>
+                    <p className="text-gray-500 text-sm">All project documents</p>
                   </div>
-                  <div className="mb-4">
-                    <span className="text-3xl font-bold">$49</span>
-                  </div>
-                  <ul className="space-y-2 mb-5 flex-grow">
-                    {getProductFeatures('complete_guide').map((feature, index) => (
-                      <li key={index} className="flex items-start">
-                        <CheckCircle className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                        <span className="text-sm leading-tight">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <Button
-                    className="w-full text-sm py-2 px-2 font-medium"
-                    onClick={() => handleCheckout('complete_guide')}
-                    disabled={loading !== null}
-                    size="sm"
-                  >
-                    {loading === 'complete_guide' ? 'Processing...' : 'Unlock All Docs'}
-                  </Button>
+                  <Sparkles className="h-6 w-6 text-blue-500" />
                 </div>
+                <div className="mb-4">
+                  <span className="text-3xl font-bold">$49</span>
+                </div>
+                <ul className="space-y-2 mb-5">
+                  {getProductFeatures('complete_guide').map((feature, index) => (
+                    <li key={index} className="flex items-start">
+                      <CheckCircle className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
+                      <span className="text-sm">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  className="w-full"
+                  onClick={() => handleCheckout('complete_guide')}
+                  disabled={loading !== null}
+                >
+                  {loading === 'complete_guide' ? 'Processing...' : 'Unlock All Docs'}
+                </Button>
               </div>
+            </div>
 
-              {/* Agency Pack */}
-              <div className="border-2 border-blue-500 rounded-lg overflow-hidden bg-white shadow-md h-full">
-                <div className="p-5 bg-gradient-to-b from-blue-50 to-white relative h-full flex flex-col">
-                  <div className="absolute top-0 right-0 bg-blue-500 text-white text-xs font-bold py-0.5 px-2 rounded-bl-lg">
-                    BEST VALUE
-                  </div>
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className="text-lg font-semibold">Complete Guide Bundle</h3>
-                      <p className="text-gray-500 text-sm">For agencies & consultants</p>
-                    </div>
-                    <Users className="h-6 w-6 text-blue-500" />
-                  </div>
-                  <div className="mb-4">
-                    <span className="text-3xl font-bold">$199</span>
-                    <span className="text-sm text-gray-500 ml-1">/ 10 projects</span>
-                  </div>
-                  <ul className="space-y-2 mb-5 flex-grow">
-                    {getProductFeatures('agency_pack').map((feature, index) => (
-                      <li key={index} className="flex items-start">
-                        <CheckCircle className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                        <span className="text-sm leading-tight">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="space-y-2">
-                    <Button
-                      className="w-full text-sm py-2 px-2 bg-blue-600 hover:bg-blue-700 font-medium"
-                      onClick={() => handleCheckout('agency_pack')}
-                      disabled={loading !== null}
-                      size="sm"
-                    >
-                      {loading === 'agency_pack' ? 'Processing...' : 'Purchase Pack'}
-                    </Button>
-                    <Button
-                      variant="link"
-                      className="w-full text-sm py-1 h-8 text-blue-600"
-                      onClick={() => handleCheckout('agency_pack_apply')}
-                      disabled={loading !== null}
-                      size="sm"
-                    >
-                      {loading === 'agency_pack_apply' ? 'Applying...' : 'Use existing pack'}
-                      <ArrowRight className="ml-1 h-4 w-4" />
-                    </Button>
-                  </div>
+            {/* Agency Pack */}
+            <div className="bg-white rounded-lg shadow-md overflow-hidden border-2 border-blue-500">
+              <div className="p-5 relative">
+                <div className="absolute top-0 right-0 bg-blue-500 text-white text-xs font-bold py-1 px-2 rounded-bl-lg">
+                  BEST VALUE
                 </div>
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="text-lg font-semibold">Agency Pack</h3>
+                    <p className="text-gray-500 text-sm">For consultants & agencies</p>
+                  </div>
+                  <Users className="h-6 w-6 text-blue-500" />
+                </div>
+                <div className="mb-4">
+                  <span className="text-3xl font-bold">$199</span>
+                  <span className="text-sm text-gray-500 ml-1">/ 10 projects</span>
+                </div>
+                <ul className="space-y-2 mb-5">
+                  {getProductFeatures('agency_pack').map((feature, index) => (
+                    <li key={index} className="flex items-start">
+                      <CheckCircle className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
+                      <span className="text-sm">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  onClick={() => handleCheckout('agency_pack')}
+                  disabled={loading !== null}
+                >
+                  {loading === 'agency_pack' ? 'Processing...' : 'Purchase Pack'}
+                </Button>
               </div>
             </div>
 
@@ -199,148 +187,6 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
                 </svg>
                 30-Day Money-Back Guarantee
               </p>
-            </div>
-
-            {/* Testimonials Section */}
-            <div className="mt-10 bg-white/90 rounded-lg p-4 shadow-sm">
-              <h3 className="text-center text-lg font-semibold mb-4">What Our Customers Say</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <p className="text-xs italic mb-2">"The marketing documents saved me hours of work. Best investment for my small business this year!"</p>
-                  <p className="text-xs font-semibold">— Sarah T., Coffee Shop Owner</p>
-                </div>
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <p className="text-xs italic mb-2">"We use the agency pack for all our clients. The quality and customization options are unmatched."</p>
-                  <p className="text-xs font-semibold">— Michael R., Marketing Agency</p>
-                </div>
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <p className="text-xs italic mb-2">"The complete guide gave us everything we needed to launch our product. Worth every penny!"</p>
-                  <p className="text-xs font-semibold">— Jessica L., Startup Founder</p>
-                </div>
-              </div>
-            </div>
-
-            {/* FAQ Section */}
-            <div className="mt-6 bg-white/90 rounded-lg p-4 shadow-sm">
-              <h3 className="text-center text-lg font-semibold mb-4">Frequently Asked Questions</h3>
-              
-              <div className="space-y-3">
-                <div className="border-b pb-2">
-                  <p className="text-sm font-medium">What's included in the documents?</p>
-                  <p className="text-xs text-gray-600 mt-1">Each document contains professionally crafted content tailored to your specific project. All content is AI-generated and human-reviewed for quality.</p>
-                </div>
-                
-                <div className="border-b pb-2">
-                  <p className="text-sm font-medium">How do I access my purchased documents?</p>
-                  <p className="text-xs text-gray-600 mt-1">Once purchased, you'll have immediate access to the full document. Simply refresh the page and the content will be unlocked.</p>
-                </div>
-                
-                <div className="border-b pb-2">
-                  <p className="text-sm font-medium">Can I use these documents for my clients?</p>
-                  <p className="text-xs text-gray-600 mt-1">Yes! The Agency Pack is specifically designed for using with multiple clients. Each document can be customized and white-labeled.</p>
-                </div>
-                
-                <div className="border-b pb-2">
-                  <p className="text-sm font-medium">What if I'm not satisfied with the document?</p>
-                  <p className="text-xs text-gray-600 mt-1">We offer a 7-day satisfaction guarantee. If you're not happy with the quality, contact our support team for a full refund.</p>
-                </div>
-                
-                <div>
-                  <p className="text-sm font-medium">Do I get future updates?</p>
-                  <p className="text-xs text-gray-600 mt-1">Yes! All purchases include updates to the purchased documents. The Complete Guide package includes access to all new document types we add in the future.</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Document Contents Section */}
-            <div className="mt-6 bg-white/90 rounded-lg p-4 shadow-sm">
-              <h3 className="text-center text-lg font-semibold mb-4">What's Included in Each Document</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="border rounded-lg p-4 bg-blue-50/50">
-                  <h4 className="text-base font-medium text-blue-700 border-b pb-2 mb-3">Marketing Plan</h4>
-                  <ul className="space-y-2">
-                    <li className="flex items-start">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                      <span className="text-sm">Executive Summary</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                      <span className="text-sm">Market Analysis</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                      <span className="text-sm">Target Audience Profiles</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                      <span className="text-sm">Key Marketing Strategies</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                      <span className="text-sm">Budget & ROI Projections</span>
-                    </li>
-                  </ul>
-                </div>
-                
-                <div className="border rounded-lg p-4 bg-blue-50/50">
-                  <h4 className="text-base font-medium text-blue-700 border-b pb-2 mb-3">Brand Positioning & Identity</h4>
-                  <ul className="space-y-2">
-                    <li className="flex items-start">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                      <span className="text-sm">Brand Story & Vision</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                      <span className="text-sm">Competitive Positioning</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                      <span className="text-sm">Brand Voice Guidelines</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                      <span className="text-sm">Value Proposition</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                      <span className="text-sm">Brand Personality & Tone</span>
-                    </li>
-                  </ul>
-                </div>
-                
-                <div className="border rounded-lg p-4 bg-blue-50/50">
-                  <h4 className="text-base font-medium text-blue-700 border-b pb-2 mb-3">Advertising & Paid Media</h4>
-                  <ul className="space-y-2">
-                    <li className="flex items-start">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                      <span className="text-sm">Channel Strategy</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                      <span className="text-sm">Ad Creative Guidelines</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                      <span className="text-sm">Budget Allocation</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                      <span className="text-sm">Campaign Timelines</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                      <span className="text-sm">Performance Metrics & KPIs</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-              
-              <div className="text-center mt-4">
-                <p className="text-sm text-blue-600 font-medium">
-                  The Complete Guide includes all documents plus 15+ more templates
-                </p>
-              </div>
             </div>
           </div>
         )}

@@ -12,6 +12,7 @@ interface PaymentContextType {
   checkDocumentAccess: (documentType: string, projectId: string) => Promise<boolean>;
   getPreviewPercentage: (documentType: string) => number;
   initiateCheckout: (productId: string, projectId: string) => Promise<void>;
+  applyAgencyPackToProject: (projectId: string) => Promise<boolean>;
 }
 
 const PaymentContext = createContext<PaymentContextType | undefined>(undefined);
@@ -110,16 +111,25 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Mock function for applying agency pack
+  const applyAgencyPackToProject = async (projectId: string): Promise<boolean> => {
+    console.log(`Mock agency pack application for project: ${projectId}`);
+    return Promise.resolve(true);
+  };
+
   return (
-    <PaymentContext.Provider value={{
-      docTypes,
-      loadingDocTypes,
-      loadingProducts,
-      creditBalance,
-      checkDocumentAccess,
-      getPreviewPercentage,
-      initiateCheckout
-    }}>
+    <PaymentContext.Provider 
+      value={{ 
+        docTypes, 
+        loadingDocTypes, 
+        checkDocumentAccess, 
+        getPreviewPercentage,
+        loadingProducts: false,
+        initiateCheckout,
+        creditBalance: 5,
+        applyAgencyPackToProject,
+      }}
+    >
       {children}
     </PaymentContext.Provider>
   );
