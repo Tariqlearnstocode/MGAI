@@ -219,13 +219,24 @@ async function handleCheckoutCompleted(session) {
     // Set credits based on price ID
     let creditsToAdd = 0;
     
-    // Price ID mapping - replace these with your actual price IDs
-    if (priceId === 'price_complete_guide' || priceId.includes('complete') && !priceId.includes('bundle')) {
+    // Map of price IDs to credits
+    const priceIdMap = {
+      'price_1R2wrwENRbwTo9ZjYZjz1oRS': 1,  // Complete Guide price ID
+      'price_1R4q0AENRbwTo9ZjztVfddMv': 10, // Agency Pack/Bundle price ID
+    };
+    
+    // Check if we have a direct match in our price map
+    if (priceIdMap[priceId]) {
+      creditsToAdd = priceIdMap[priceId];
+      console.log(`Matched price ID ${priceId}, adding ${creditsToAdd} credits`);
+    } 
+    // Fallback to string matching (keeping for backward compatibility)
+    else if (priceId.includes('complete') && !priceId.includes('bundle')) {
       creditsToAdd = 1; // Complete Guide
-      console.log(`Complete Guide purchased (${priceId}), adding 1 credit`);
-    } else if (priceId === 'price_bundle' || priceId.includes('bundle')) {
+      console.log(`Complete Guide detected from price ID (${priceId}), adding 1 credit`);
+    } else if (priceId.includes('agency') || priceId.includes('bundle')) {
       creditsToAdd = 10; // Bundle
-      console.log(`Bundle purchased (${priceId}), adding 10 credits`);
+      console.log(`Agency Pack/Bundle detected from price ID (${priceId}), adding 10 credits`);
     } else {
       console.log(`Non-credit product purchased (${priceId}), no credits added`);
       return;
