@@ -1,9 +1,10 @@
 import { useNavigate, Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Loader2, Search, ChevronDown, CheckCircle2, Clock, FileText, Files } from 'lucide-react';
+import { PlusCircle, Loader2, Search, ChevronDown, CheckCircle2, Clock, FileText, Files, Coins } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Project, Document } from '@/lib/projects';
+import { usePayment } from '@/contexts/PaymentContext';
 
 interface ProjectWithDocuments extends Project {
   documents: Document[];
@@ -16,6 +17,7 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All Status');
   const [sortOrder, setSortOrder] = useState('Descending');
+  const { creditBalance, loadingCredits } = usePayment();
 
   useEffect(() => {
     async function loadProjects() {
@@ -52,7 +54,29 @@ export default function Dashboard() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium text-gray-500">Available Credits</h3>
+              <Coins className="h-5 w-5 text-blue-500" />
+            </div>
+            <div className="mt-2">
+              {loadingCredits ? (
+                <div className="flex items-center space-x-2">
+                  <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
+                  <span className="text-sm text-gray-500">Loading...</span>
+                </div>
+              ) : (
+                <>
+                  <p className="text-3xl font-semibold text-blue-600">{creditBalance}</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Credits Available
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+
           <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-medium text-gray-500">Time Saved</h3>

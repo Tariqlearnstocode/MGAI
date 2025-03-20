@@ -9,6 +9,8 @@ interface PaymentContextType {
   loadingDocTypes: boolean;
   loadingProducts: boolean;
   creditBalance: number;
+  loadingCredits: boolean;
+  refreshCreditBalance: () => Promise<void>;
   checkDocumentAccess: (documentType: string, projectId: string) => Promise<boolean>;
   getPreviewPercentage: (documentType: string) => number;
   initiateCheckout: (productId: string, projectId: string) => Promise<void>;
@@ -21,12 +23,56 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
   const [docTypes, setDocTypes] = useState<DocumentType[]>([]);
   const [loadingDocTypes, setLoadingDocTypes] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(false);
-  const [creditBalance, setCreditBalance] = useState(5); // Mock credit balance
+  const [creditBalance, setCreditBalance] = useState(0); // Initialize with 0 instead of mock value
+  const [loadingCredits, setLoadingCredits] = useState(false);
   
   // Load document types
   useEffect(() => {
     fetchDocumentTypes();
   }, []);
+
+  // Fetch credit balance when user changes
+  useEffect(() => {
+    if (user?.id) {
+      fetchCreditBalance();
+    }
+  }, [user?.id]);
+
+  // Fetch the user's credit balance from the database
+  const fetchCreditBalance = async () => {
+    if (!user?.id) return;
+    
+    setLoadingCredits(true);
+    try {
+      const { data, error } = await supabase
+        .from('stripe_customers')
+        .select('credit_balance')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching credit balance:', error);
+        setCreditBalance(0);
+        return;
+      }
+      
+      if (data) {
+        setCreditBalance(data.credit_balance || 0);
+      } else {
+        setCreditBalance(0);
+      }
+    } catch (error) {
+      console.error('Error in fetchCreditBalance:', error);
+      setCreditBalance(0);
+    } finally {
+      setLoadingCredits(false);
+    }
+  };
+
+  // Function to manually refresh credit balance
+  const refreshCreditBalance = async () => {
+    return fetchCreditBalance();
+  };
 
   // Fetch document types
   const fetchDocumentTypes = async () => {
@@ -124,6 +170,8 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
         loadingProducts,
         initiateCheckout,
         creditBalance,
+        loadingCredits,
+        refreshCreditBalance,
       }}
     >
       {children}
