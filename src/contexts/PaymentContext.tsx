@@ -172,7 +172,7 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
       const session = await response.json();
       
       // Redirect to checkout
-      window.location.href = session.url;
+      window.open(session.url, '_blank');
     } catch (error) {
       console.error('Checkout error:', error);
       throw error;
