@@ -316,25 +316,22 @@ export default function AppSidebar() {
                   <CreditCard className="h-4 w-4 text-blue-400 mr-2" />
                   <h3 className="text-sm font-medium text-blue-200">Available Credits</h3>
                 </div>
-                <CheckoutButton
-                  productId="agency_pack"
-                  className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded"
-                  size="sm"
-                  showArrow={false}
-                >
-                  Buy+
-                </CheckoutButton>
-              </div>
-              <div className="text-xl font-bold text-blue-100 flex items-center">
-                {loadingCredits ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-blue-300 mr-2" />
-                ) : (
-                  creditBalance
-                )}
-                <span className="text-xs ml-1 text-blue-300 font-normal">
-                  {creditBalance === 1 ? 'credit' : 'credits'}
+                <span className="text-lg font-bold text-blue-100 flex items-center">
+                  {loadingCredits ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-blue-300" />
+                  ) : (
+                    creditBalance
+                  )}
                 </span>
               </div>
+              <CheckoutButton
+                productId="agency_pack"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-1.5 rounded mt-2"
+                size="sm"
+                showArrow={false}
+              >
+                Buy 10 Project Credits
+              </CheckoutButton>
             </>
           )}
         </div>

@@ -12,7 +12,7 @@ BEGIN
     -- Check if user has available credits
     SELECT (credits_purchased - COALESCE(credits_used, 0)) INTO available_credits
     FROM stripe_customers
-    WHERE user_id = $1;
+    WHERE stripe_customers.user_id = $1;
     
     -- Validate credits and project
     IF available_credits IS NULL THEN
@@ -36,7 +36,7 @@ BEGIN
     -- Update credits_used in stripe_customers
     UPDATE stripe_customers
     SET credits_used = COALESCE(credits_used, 0) + 1
-    WHERE user_id = $1;
+    WHERE stripe_customers.user_id = $1;
     
     -- Unlock the project
     UPDATE projects

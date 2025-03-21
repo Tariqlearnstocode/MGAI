@@ -243,6 +243,14 @@ export async function getDocument(id: string) {
     .single();
 
   if (error) throw error;
+
+  // After calling checkDocumentAccess
+  console.log('ACCESS CHECK RESULT:', {
+    projectId: document.project_id,
+    hasAccess: document.hasAccess,
+    raw: JSON.stringify(document.hasAccess) // Show exact value
+  });
+
   return document;
 }
 
