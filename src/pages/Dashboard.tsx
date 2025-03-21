@@ -5,6 +5,7 @@ import { PlusCircle, Loader2, Search, ChevronDown, CheckCircle2, Clock, FileText
 import { supabase } from '@/lib/supabase';
 import type { Project, Document } from '@/lib/projects';
 import { usePayment } from '@/contexts/PaymentContext';
+import { CheckoutButton } from '@/components/ui/CheckoutButton';
 
 interface ProjectWithDocuments extends Project {
   documents: Document[];
@@ -127,25 +128,75 @@ export default function Dashboard() {
     }
   };
 
+  // Helper function to get tag colors based on business type
+  const getBusinessTypeColors = (type: string): string => {
+    switch (type.toLowerCase()) {
+      case 'local_business':
+        return 'bg-blue-100 text-blue-800';
+      case 'saas':
+        return 'bg-purple-100 text-purple-800';
+      case 'ecommerce':
+        return 'bg-green-100 text-green-800';
+      case 'agency':
+        return 'bg-indigo-100 text-indigo-800';
+      case 'finance':
+        return 'bg-emerald-100 text-emerald-800';
+      case 'health':
+        return 'bg-teal-100 text-teal-800';
+      case 'education':
+        return 'bg-amber-100 text-amber-800';
+      case 'food':
+        return 'bg-orange-100 text-orange-800';
+      case 'travel':
+        return 'bg-rose-100 text-rose-800';
+      case 'tech':
+        return 'bg-sky-100 text-sky-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   return (
     <div className="min-h-full bg-gray-100">
       {/* Credit info banner */}
-      {creditBalance > 0 && (
-        <div className="bg-blue-50 border-b border-blue-100 py-2">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center text-sm">
+      <div className="bg-blue-50 border-b border-blue-100">
+        <div className="px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between py-3 text-sm">
+            <div className="flex items-center">
               <CreditCard className="h-4 w-4 text-blue-500 mr-2 flex-shrink-0" />
               <span className="text-blue-700 font-medium">
                 {creditBalance} Credit{creditBalance !== 1 ? 's' : ''} Available
               </span>
               <span className="mx-2 text-blue-300">•</span>
               <span className="text-blue-600">
-                Use your credits to unlock projects
+                {/* Randomly select one of these messages - we'll use the modulo of the current minute */}
+                {(() => {
+                  const messages = [
+                    "It only costs 1 credit to unlock all documents within your project",
+                    "Unlock unlimited documents in each project with just 1 credit",
+                    "Get full access to all project documents with a single credit",
+                    "One credit gives you complete access to an entire project",
+                    "Use 1 credit to unlock everything in your marketing project",
+                    "Generate complete marketing documentation with just 1 credit per project"
+                  ];
+                  const index = new Date().getMinutes() % messages.length;
+                  return messages[index];
+                })()}
               </span>
             </div>
+            <CheckoutButton
+              productId="agency_pack"
+              className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md mr-2"
+              size="sm"
+              showArrow={false}
+            >
+              {creditBalance === 0 
+                ? "Start Marketing for as low as $39.99" 
+                : "Buy More Credits"}
+            </CheckoutButton>
           </div>
         </div>
-      )}
+      </div>
       
       <div className="py-8 px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
@@ -294,8 +345,8 @@ export default function Dashboard() {
                         )}
                         <div className="p-6">
                           <div className="flex justify-between items-start">
-                            <div>
-                              <h3 className="text-xl font-semibold text-gray-900 mb-1">
+                            <div className="flex-1 min-w-0 mr-4">
+                              <h3 className="text-xl font-semibold text-gray-900 mb-2">
                                 <div className="flex items-center gap-2">
                                   {project.name}
                                   {project.documents.every(doc => doc.status === 'completed') && (
@@ -309,8 +360,8 @@ export default function Dashboard() {
                                   )}
                                 </div>
                               </h3>
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                              <div className="flex items-center mb-3">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getBusinessTypeColors(project.business_type || "Business")}`}>
                                   {formatBusinessType(project.business_type || "Business")}
                                 </span>
                               </div>
