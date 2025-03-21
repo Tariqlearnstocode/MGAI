@@ -314,7 +314,7 @@ app.post('/api/create-stripe-customer', async (req, res) => {
 // Create checkout session endpoint
 app.post('/api/create-checkout-session', async (req, res) => {
   try {
-    const { priceId, productId, projectId, userId } = req.body;
+    const { priceId, productId, projectId, userId, returnUrl } = req.body;
 
     if (!priceId || !productId || !userId) {
       return res.status(400).json({ error: 'Missing required parameters' });
@@ -332,6 +332,9 @@ app.post('/api/create-checkout-session', async (req, res) => {
       return res.status(500).json({ error: 'Failed to retrieve customer data' });
     }
 
+    // Default return path is the dashboard if no custom return URL is provided
+    const returnPath = returnUrl || '/app';
+    
     // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -344,12 +347,13 @@ app.post('/api/create-checkout-session', async (req, res) => {
       ],
       mode: 'payment',
       allow_promotion_codes: true,
-      success_url: `${process.env.VITE_APP_URL}/app/projects/${projectId}/documents?success=true&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.VITE_APP_URL}/app/projects/${projectId}/documents?canceled=true`,
+      success_url: `${process.env.VITE_APP_URL}${returnPath}?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.VITE_APP_URL}${returnPath}?canceled=true`,
       metadata: {
         userId,
         productId,
         projectId: projectId || '',
+        returnUrl: returnUrl || '',
       },
     });
 

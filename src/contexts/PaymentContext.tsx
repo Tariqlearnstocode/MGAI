@@ -13,7 +13,7 @@ interface PaymentContextType {
   refreshCreditBalance: () => Promise<void>;
   checkDocumentAccess: (documentType: string, projectId: string) => Promise<boolean>;
   getPreviewPercentage: (documentType: string) => number;
-  initiateCheckout: (productId: string, projectId: string) => Promise<void>;
+  initiateCheckout: (productId: string, projectId: string, returnUrl?: string) => Promise<void>;
   applyCredit: (projectId: string) => Promise<{success: boolean, message: string}>;
 }
 
@@ -129,7 +129,7 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Mock function for initiating checkout
-  const initiateCheckout = async (productId: string, projectId: string): Promise<void> => {
+  const initiateCheckout = async (productId: string, projectId: string, returnUrl?: string): Promise<void> => {
     setLoadingProducts(true);
     
     try {
@@ -161,6 +161,7 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
           productId,
           projectId,
           userId: user.id,
+          returnUrl: returnUrl || '/app' // Default to dashboard if no return URL provided
         }),
       });
       

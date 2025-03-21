@@ -76,8 +76,8 @@ export default function LandingPage() {
         {/* 1. Hero Section - Light theme with gradient */}
         <div className="bg-gradient-to-b from-blue-50/80 to-white relative overflow-hidden pt-32 pb-20">
           <div className="container mx-auto px-[5%] text-center relative z-10">
-            <div className="inline-block px-4 py-1 rounded-full bg-yellow-400 text-yellow-900 text-sm font-medium mb-16">
-              🎉 Sign Up Now for 40% Off on Yearly Plan!
+            <div className="inline-block px-4 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-medium mb-6">
+              🎉 Launch Discount! Get 40% off on site wide!
             </div>
             
             <h1 className="text-4xl md:text-6xl font-bold text-[#0A1A2C] tracking-tight leading-tight mb-6 mx-auto max-w-4xl">
@@ -106,138 +106,8 @@ export default function LandingPage() {
                 Preview Platform
               </Button>
             </div>
-
-            {/* Command Center Dashboard Preview */}
-            <div className="relative mx-auto mt-16 max-w-[1200px] rounded-2xl bg-white shadow-xl">
-              {/* Mock Dashboard UI */}
-              <div className="flex min-h-[600px] overflow-hidden rounded-xl bg-gray-50">
-                {/* Left Sidebar */}
-                <div className="w-64 border-r border-gray-200 bg-white">
-                  <div className="flex items-center space-x-2 p-4 mb-8">
-                    <div className="h-8 w-8 rounded-lg bg-blue-500 flex items-center justify-center">
-                      <Sparkles className="h-5 w-5 text-white" />
-                    </div>
-                    <span className="text-xl font-bold text-gray-900">MarketingGuide</span>
-                  </div>
-                  
-                  <div className="space-y-1">
-                    <div className="flex items-center space-x-3 rounded-lg bg-blue-50 px-3 py-2 text-blue-600">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
-                      </svg>
-                      <span className="font-medium">Dashboard</span>
-                    </div>
-                    <div className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-                        <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
-                      </svg>
-                      <span>New Project</span>
-                    </div>
-                    <div className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
-                      </svg>
-                      <span>My Documents</span>
-                    </div>
-                    <div className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 100-16 8 8 0 000 16zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-                      </svg>
-                      <span>Support</span>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Main Content */}
-                <div className="flex-1 p-6">
-                  <h1 className="text-2xl font-bold text-gray-900 mb-4">Your Marketing Command Center</h1>
-                  <p className="text-gray-600 mb-8">Everything you need to create and manage your marketing strategy in one place</p>
-                  
-                  {/* Stats cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                      <h3 className="text-sm font-medium text-gray-500 mb-4">Time Saved</h3>
-                      <div className="text-3xl font-bold text-blue-600 mb-1">12.5 Hours</div>
-                      <div className="text-sm text-gray-500">+2.5 hours from last document</div>
-                    </div>
-                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                      <h3 className="text-sm font-medium text-gray-500 mb-4">Documents Created</h3>
-                      <div className="text-3xl font-bold text-blue-600 mb-1">8</div>
-                      <div className="text-sm text-gray-500">Across 3 projects</div>
-                    </div>
-                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                      <h3 className="text-sm font-medium text-gray-500 mb-4">Projects Completed</h3>
-                      <div className="text-3xl font-bold text-blue-600 mb-1">2</div>
-                      <div className="text-sm text-gray-500">1 in progress</div>
-                    </div>
-                  </div>
-                  
-                  {/* Templates Section */}
-                  <div className="mb-10">
-                    <h2 className="text-xl font-bold text-gray-900 mb-4">Marketing Templates</h2>
-                    <p className="text-sm text-gray-600 mb-4">Create your next marketing project</p>
-                    
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                      <div className="bg-white p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
-                        <div className="bg-blue-100 text-blue-600 p-2 rounded-md w-10 h-10 flex items-center justify-center mb-3">
-                          <Target className="h-5 w-5" />
-                        </div>
-                        <div className="font-medium">Social Media Strategy</div>
-                      </div>
-                      <div className="bg-white p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
-                        <div className="bg-blue-100 text-blue-600 p-2 rounded-md w-10 h-10 flex items-center justify-center mb-3">
-                          <BarChart3 className="h-5 w-5" />
-                        </div>
-                        <div className="font-medium">Content Calendar</div>
-                      </div>
-                      <div className="bg-white p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
-                        <div className="bg-blue-100 text-blue-600 p-2 rounded-md w-10 h-10 flex items-center justify-center mb-3">
-                          <Users className="h-5 w-5" />
-                        </div>
-                        <div className="font-medium">Email Campaign</div>
-                      </div>
-                      <div className="bg-white p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
-                        <div className="bg-blue-100 text-blue-600 p-2 rounded-md w-10 h-10 flex items-center justify-center mb-3">
-                          <MessageSquare className="h-5 w-5" />
-                        </div>
-                        <div className="font-medium">SEO Strategy</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Right Panel - Download Options */}
-                <div className="hidden lg:block w-64 border-l border-gray-200 bg-white">
-                  <h2 className="text-xl font-bold text-center p-4 mb-6">Download Docs</h2>
-                  
-                  <div className="space-y-3 px-4">
-                    <Button className="w-full justify-center bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100">
-                      Marketing Plan
-                    </Button>
-                    <Button className="w-full justify-center bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100">
-                      Content Strategy
-                    </Button>
-                    <Button className="w-full justify-center bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100">
-                      Competitor Analysis
-                    </Button>
-                    <Button className="w-full justify-center bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100">
-                      Brand Guidelines
-                    </Button>
-                    <Button className="w-full justify-center bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100">
-                      Budget Plan
-                    </Button>
-                    <Button className="w-full justify-center text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-200 mt-4">
-                      + Add Custom Doc
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
-
-
 
         {/* 4. How It Works Section - Step by step */}
         <div className="bg-white py-20">
