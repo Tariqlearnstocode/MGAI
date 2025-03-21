@@ -14,6 +14,7 @@ interface PaymentContextType {
   checkDocumentAccess: (documentType: string, projectId: string) => Promise<boolean>;
   getPreviewPercentage: (documentType: string) => number;
   initiateCheckout: (productId: string, projectId: string) => Promise<void>;
+  applyCredit: (projectId: string) => Promise<{success: boolean, message: string}>;
 }
 
 const PaymentContext = createContext<PaymentContextType | undefined>(undefined);
@@ -180,6 +181,42 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Apply a credit to unlock a project
+  const applyCredit = async (projectId: string): Promise<{success: boolean, message: string}> => {
+    if (!user?.id) {
+      return { success: false, message: 'User not authenticated' };
+    }
+    
+    setLoadingCredits(true);
+    try {
+      const { data, error } = await supabase
+        .rpc('apply_project_credit', {
+          user_id: user.id,
+          project_id: projectId
+        });
+      
+      if (error) {
+        console.error('Error applying credit:', error);
+        return { success: false, message: error.message };
+      }
+      
+      // Refresh credit balance after successful application
+      if (data.success) {
+        await fetchCreditBalance();
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error in applyCredit:', error);
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    } finally {
+      setLoadingCredits(false);
+    }
+  };
+
   return (
     <PaymentContext.Provider 
       value={{ 
@@ -192,6 +229,7 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
         creditBalance,
         loadingCredits,
         refreshCreditBalance,
+        applyCredit,
       }}
     >
       {children}

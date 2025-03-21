@@ -17,7 +17,10 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
   
   const { 
     loadingProducts, 
-    initiateCheckout, 
+    initiateCheckout,
+    creditBalance,
+    loadingCredits,
+    applyCredit
   } = usePayment();
   
   // Check if mobile
@@ -48,6 +51,32 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
       setLoading(null);
     }
   }
+
+  // Add a handler for applying credits
+  const handleApplyCredit = async () => {
+    setLoading('credit');
+    setError(null);
+    setSuccess(null);
+    
+    try {
+      const result = await applyCredit(projectId);
+      
+      if (result.success) {
+        setSuccess('Credit applied successfully! Refreshing...');
+        // Wait a moment then reload the page to show unlocked content
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        setError(result.message || 'Failed to apply credit');
+      }
+    } catch (err) {
+      setError('Error applying credit. Please try again.');
+      console.error(err);
+    } finally {
+      setLoading(null);
+    }
+  };
 
   const getProductFeatures = (productId: string) => {
     switch (productId) {
@@ -114,6 +143,28 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
             {success && (
               <div className="col-span-full bg-green-50 border border-green-200 rounded-md p-3 mb-2 text-green-600">
                 {success}
+              </div>
+            )}
+            
+            {/* Use Credit Option - Add before the Complete Guide section */}
+            {creditBalance > 0 && (
+              <div className="col-span-full bg-white rounded-lg shadow-md overflow-hidden mb-4">
+                <div className="p-5">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h3 className="text-lg font-semibold">Use Available Credit</h3>
+                      <p className="text-gray-500 text-sm">You have {creditBalance} credit{creditBalance !== 1 ? 's' : ''} available</p>
+                    </div>
+                    <CreditCard className="h-6 w-6 text-green-500" />
+                  </div>
+                  <Button
+                    className="w-full bg-green-600 hover:bg-green-700"
+                    onClick={handleApplyCredit}
+                    disabled={loading !== null || loadingCredits}
+                  >
+                    {loading === 'credit' ? 'Processing...' : 'Use 1 Credit to Unlock'}
+                  </Button>
+                </div>
               </div>
             )}
             
