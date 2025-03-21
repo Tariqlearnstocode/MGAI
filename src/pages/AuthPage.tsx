@@ -38,10 +38,11 @@ export default function AuthPage() {
     try {
       if (isLogin) {
         await signIn(email, password);
+        navigate(from, { replace: true });
       } else {
         await signUp(email, password, fullName);
+        navigate('/app/new-project', { replace: true });
       }
-      navigate(from, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
