@@ -135,8 +135,8 @@ app.post('/api/stripe-webhook', express.raw({type: 'application/json'}), async (
         
         // Map of price IDs to credits - add your actual price IDs here
         const priceIdMap = {
-          'price_1R2wrwENRbwTo9ZjYZjz1oRS': 1,  // Complete Guide price ID
-          'price_1R4q0AENRbwTo9ZjztVfddMv': 10, // Agency Pack/Bundle price ID
+          'price_1R5DUrCzMzSr3Qh4lVAm3SMv': 1,  // Complete Guide price ID
+          'price_1R5DUoCzMzSr3Qh4N1Pqqcnd': 10, // Agency Pack/Bundle price ID
           // Add any other price IDs here
         };
         

@@ -136,8 +136,8 @@ export const PaymentProvider = ({ children }: { children: ReactNode }) => {
       // Map product IDs to Stripe price IDs
       // These would need to be your actual Stripe price IDs
       const priceMap: Record<string, string> = {
-        'complete_guide': 'price_1R2wrwENRbwTo9ZjYZjz1oRS', // Updated Complete Guide price ID
-        'agency_pack': 'price_1R4q0AENRbwTo9ZjztVfddMv', // Example ID, replace with actual
+        'complete_guide': 'price_1R5DUrCzMzSr3Qh4lVAm3SMv', // Complete Guide price ID
+        'agency_pack': 'price_1R5DUoCzMzSr3Qh4N1Pqqcnd', // Agency Pack price ID
       };
       
       const priceId = priceMap[productId];

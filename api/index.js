@@ -221,8 +221,8 @@ async function handleCheckoutCompleted(session) {
     
     // Map of price IDs to credits
     const priceIdMap = {
-      'price_1R2wrwENRbwTo9ZjYZjz1oRS': 1,  // Complete Guide price ID
-      'price_1R4q0AENRbwTo9ZjztVfddMv': 10, // Agency Pack/Bundle price ID
+      'price_1R5DUrCzMzSr3Qh4lVAm3SMv': 1,  // Complete Guide price ID
+      'price_1R5DUoCzMzSr3Qh4N1Pqqcnd': 10, // Agency Pack/Bundle price ID
     };
     
     // Check if we have a direct match in our price map
