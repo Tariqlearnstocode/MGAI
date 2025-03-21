@@ -136,7 +136,14 @@ export default function Dashboard() {
       case 'saas':
         return 'bg-purple-100 text-purple-800';
       case 'ecommerce':
+      case 'e-commerce':
         return 'bg-green-100 text-green-800';
+      case 'professional_services':
+        return 'bg-indigo-100 text-indigo-800';
+      case 'content_creator':
+        return 'bg-pink-100 text-pink-800';
+      case 'custom':
+        return 'bg-gray-100 text-gray-800';
       case 'agency':
         return 'bg-indigo-100 text-indigo-800';
       case 'finance':
