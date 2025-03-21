@@ -5,7 +5,7 @@ import { Loader2, ArrowLeft, Brain } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function AuthPage() {
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin, setIsLogin] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
