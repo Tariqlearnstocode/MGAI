@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { usePayment } from '@/contexts/PaymentContext';
 import { Lock, CheckCircle, Sparkles, Users, ArrowRight, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/lib/supabase';
 
 interface PreviewOverlayProps {
   projectId: string;
@@ -14,6 +15,7 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [projectIsUnlocked, setProjectIsUnlocked] = useState(false);
   
   const { 
     loadingProducts, 
@@ -22,6 +24,30 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
     loadingCredits,
     applyCredit
   } = usePayment();
+  
+  // Check if project is already unlocked
+  useEffect(() => {
+    const checkProjectStatus = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('projects')
+          .select('is_unlocked')
+          .eq('id', projectId)
+          .single();
+          
+        if (error) {
+          console.error('Error checking project status:', error);
+          return;
+        }
+        
+        setProjectIsUnlocked(data?.is_unlocked === true);
+      } catch (err) {
+        console.error('Error in checkProjectStatus:', err);
+      }
+    };
+    
+    checkProjectStatus();
+  }, [projectId]);
   
   // Check if mobile
   useEffect(() => {
@@ -147,7 +173,7 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
             )}
             
             {/* Use Credit Option - Add before the Complete Guide section */}
-            {creditBalance > 0 && (
+            {creditBalance > 0 && !projectIsUnlocked && (
               <div className="col-span-full bg-white rounded-lg shadow-md overflow-hidden mb-4">
                 <div className="p-5">
                   <div className="flex justify-between items-start mb-3">

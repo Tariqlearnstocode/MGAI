@@ -1,13 +1,14 @@
 import { useNavigate, Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Loader2, Search, ChevronDown, CheckCircle2, Clock, FileText, Files, Coins } from 'lucide-react';
+import { PlusCircle, Loader2, Search, ChevronDown, CheckCircle2, Clock, FileText, Files, Coins, Lock, Unlock, CreditCard } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Project, Document } from '@/lib/projects';
 import { usePayment } from '@/contexts/PaymentContext';
 
 interface ProjectWithDocuments extends Project {
   documents: Document[];
+  is_unlocked?: boolean;
 }
 
 export default function Dashboard() {
@@ -17,31 +18,73 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All Status');
   const [sortOrder, setSortOrder] = useState('Descending');
-  const { creditBalance, loadingCredits } = usePayment();
+  const [applyingCredit, setApplyingCredit] = useState<string | null>(null);
+  const [creditResult, setCreditResult] = useState<{id: string, success: boolean, message: string} | null>(null);
+  const { creditBalance, loadingCredits, applyCredit, refreshCreditBalance } = usePayment();
 
   useEffect(() => {
-    async function loadProjects() {
-      try {
-        const { data, error } = await supabase
-          .from('projects')
-          .select(`
-            *,
-            documents (*)
-          `)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        if (!data) throw new Error('No data returned from query');
-        
-        setProjects(data);
-      } catch (error) {
-      } finally {
-        setLoading(false);
-      }
-    }
-
     loadProjects();
   }, []);
+  
+  async function loadProjects() {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('projects')
+        .select(`
+          *,
+          documents (*)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      if (!data) throw new Error('No data returned from query');
+      
+      setProjects(data);
+    } catch (error) {
+      console.error('Error loading projects:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+  
+  const handleApplyCredit = async (projectId: string) => {
+    if (creditBalance <= 0) {
+      setCreditResult({
+        id: projectId,
+        success: false,
+        message: 'No credits available'
+      });
+      return;
+    }
+    
+    setApplyingCredit(projectId);
+    setCreditResult(null);
+    
+    try {
+      const result = await applyCredit(projectId);
+      setCreditResult({
+        id: projectId,
+        success: result.success,
+        message: result.message
+      });
+      
+      if (result.success) {
+        // Refresh projects to show the updated unlock status
+        await loadProjects();
+        // Refresh credit balance
+        await refreshCreditBalance();
+      }
+    } catch (err) {
+      setCreditResult({
+        id: projectId,
+        success: false,
+        message: err instanceof Error ? err.message : 'Unknown error occurred'
+      });
+    } finally {
+      setApplyingCredit(null);
+    }
+  };
 
   return (
     <div className="min-h-full bg-gray-50">
@@ -169,6 +212,80 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Project Unlock Status Section */}
+        {creditBalance > 0 && (
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Unlock Projects with Credits</h2>
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              <div className="p-4 bg-blue-50 border-b border-gray-200">
+                <div className="flex items-center">
+                  <CreditCard className="h-5 w-5 text-blue-600 mr-2" />
+                  <span className="text-sm font-medium text-blue-600">
+                    You have {creditBalance} credit{creditBalance !== 1 ? 's' : ''} available to unlock projects
+                  </span>
+                </div>
+              </div>
+              
+              {loading ? (
+                <div className="p-6 text-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto" />
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-200">
+                  {projects.map(project => (
+                    <div key={project.id} className="p-4 flex items-center justify-between">
+                      <div>
+                        <h3 className="font-medium text-gray-900">{project.name}</h3>
+                        <p className="text-sm text-gray-500 mt-1 line-clamp-1">{project.description}</p>
+                      </div>
+                      
+                      <div className="flex items-center">
+                        {project.is_unlocked ? (
+                          <div className="flex items-center text-green-600 bg-green-50 px-3 py-1 rounded-full text-sm">
+                            <Unlock className="h-4 w-4 mr-1" />
+                            Unlocked
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-end gap-2">
+                            {creditResult && creditResult.id === project.id && (
+                              <div className={`text-sm px-2 py-1 rounded ${creditResult.success ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
+                                {creditResult.message}
+                              </div>
+                            )}
+                            <Button 
+                              size="sm"
+                              variant="outline"
+                              className="flex items-center gap-1"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleApplyCredit(project.id);
+                              }}
+                              disabled={applyingCredit === project.id || creditBalance <= 0}
+                            >
+                              {applyingCredit === project.id ? (
+                                <>
+                                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                  Processing...
+                                </>
+                              ) : (
+                                <>
+                                  <CreditCard className="h-3 w-3 mr-1" />
+                                  Use Credit to Unlock
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Projects List */}
         {loading ? (
           <div className="text-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto" />
@@ -198,6 +315,9 @@ export default function Dashboard() {
                             {project.name}
                             {project.documents.every(doc => doc.status === 'completed') && (
                               <CheckCircle2 className="h-5 w-5 text-green-500" />
+                            )}
+                            {project.is_unlocked && (
+                              <Unlock className="h-4 w-4 text-green-500" />
                             )}
                           </div>
                         </h3>
