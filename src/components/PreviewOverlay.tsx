@@ -143,13 +143,19 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
         className="absolute left-0 right-0 flex flex-col items-center justify-center text-center px-2 z-20 pointer-events-auto"
         style={{ top: `${previewPercentage + 10}%` }}
       >
-        <div className="mb-6 px-8 py-6 rounded-lg bg-white/95 backdrop-blur-sm shadow-lg max-w-2xl mx-auto">
+        <div className="mb-10 text-center">
           <div className="h-16 w-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Lock className="h-8 w-8 text-blue-600" />
           </div>
-          <h3 className="text-2xl font-bold mb-3">Preview Mode</h3>
-          <p className="text-gray-600 mb-4 text-lg">
-            You've reached the end of the preview. This is a demonstration of the paywall feature.
+          <h3 className="text-2xl font-bold mb-3">
+            {creditBalance > 0 && !projectIsUnlocked 
+              ? "Unlock All Project Documents" 
+              : "Preview Mode"}
+          </h3>
+          <p className="text-gray-600 mb-4 text-lg max-w-md mx-auto">
+            {creditBalance > 0 && !projectIsUnlocked
+              ? "You've reached the end of the preview. Use one of your available credits to unlock the full document."
+              : "You've reached the end of the preview. This is a demonstration of the paywall feature."}
           </p>
         </div>
         
@@ -172,16 +178,17 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
               </div>
             )}
             
-            {/* Use Credit Option - Add before the Complete Guide section */}
+            {/* Use Credit Option - Simplified */}
             {creditBalance > 0 && !projectIsUnlocked && (
               <div className="col-span-full bg-white rounded-lg shadow-md overflow-hidden mb-4">
                 <div className="p-5">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className="text-lg font-semibold">Use Available Credit</h3>
-                      <p className="text-gray-500 text-sm">You have {creditBalance} credit{creditBalance !== 1 ? 's' : ''} available</p>
+                  <div className="flex justify-between items-center mb-4">
+                    <div className="flex items-center">
+                      <CreditCard className="h-5 w-5 text-green-500 mr-2" />
+                      <span className="text-lg font-medium">
+                        {creditBalance} credit{creditBalance !== 1 ? 's' : ''} available
+                      </span>
                     </div>
-                    <CreditCard className="h-6 w-6 text-green-500" />
                   </div>
                   <Button
                     className="w-full bg-green-600 hover:bg-green-700"
@@ -194,6 +201,9 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
               </div>
             )}
             
+            {/* Purchase options - Only show when user has no credits or project is already unlocked */}
+            {(creditBalance === 0 || projectIsUnlocked) && (
+            <>
             {/* Complete Guide */}
             <div className="bg-white rounded-lg shadow-md overflow-hidden">
               <div className="p-5">
@@ -255,12 +265,20 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
                   onClick={() => handleCheckout('agency_pack')}
                   disabled={loading !== null}
                 >
-                  {loading === 'agency_pack' ? 'Processing...' : 'Purchase Pack'}
+                  {loading === 'agency_pack' ? 'Processing...' : (
+                    <span className="flex items-center justify-center">
+                      Get Agency Pack
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </span>
+                  )}
                 </Button>
               </div>
             </div>
+            </>
+            )}
 
             {/* Secure Payment Notice */}
+            {(creditBalance === 0 || projectIsUnlocked) && (
             <div className="mt-4 text-center">
               <p className="text-xs text-gray-500 flex items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
@@ -275,6 +293,7 @@ export default function PreviewOverlay({ projectId, documentType, previewPercent
                 30-Day Money-Back Guarantee
               </p>
             </div>
+            )}
           </div>
         )}
       </div>
