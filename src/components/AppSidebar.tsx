@@ -21,6 +21,7 @@ import {
   Loader2,
   CreditCard
 } from 'lucide-react';
+import { CheckoutButton } from '@/components/ui/CheckoutButton';
 
 const navigation = [
   {
@@ -172,10 +173,9 @@ function NavItem({ children, href, icon: Icon, badge, collapsed }: NavItemProps)
 export default function AppSidebar() {
   const navigate = useNavigate();
   const { signOut } = useAuth();
-  const { creditBalance, loadingCredits, initiateCheckout } = usePayment();
+  const { creditBalance, loadingCredits } = usePayment();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [collapsed, setCollapsed] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -205,17 +205,6 @@ export default function AppSidebar() {
     } catch (error) {
       console.error('Failed to sign out:', error);
       setIsSigningOut(false);
-    }
-  };
-
-  const handleBuyCredits = async () => {
-    try {
-      setIsLoading(true);
-      await initiateCheckout('bundle', '');
-    } catch (error) {
-      console.error('Failed to initiate checkout:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -327,20 +316,14 @@ export default function AppSidebar() {
                   <CreditCard className="h-4 w-4 text-blue-400 mr-2" />
                   <h3 className="text-sm font-medium text-blue-200">Available Credits</h3>
                 </div>
-                <button 
-                  onClick={handleBuyCredits}
-                  disabled={isLoading}
-                  className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded flex items-center"
+                <CheckoutButton
+                  productId="agency_pack"
+                  className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded"
+                  size="sm"
+                  showArrow={false}
                 >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                      <span>Loading...</span>
-                    </>
-                  ) : (
-                    <span>Buy+</span>
-                  )}
-                </button>
+                  Buy+
+                </CheckoutButton>
               </div>
               <div className="text-xl font-bold text-blue-100 flex items-center">
                 {loadingCredits ? (
