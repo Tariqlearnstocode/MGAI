@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePayment } from '@/contexts/PaymentContext';
 import { cn } from '@/lib/utils';
 import {
   Sparkles,
@@ -17,7 +18,8 @@ import {
   Briefcase,
   FileText,
   LogOut,
-  Loader2
+  Loader2,
+  CreditCard
 } from 'lucide-react';
 
 const navigation = [
@@ -170,8 +172,10 @@ function NavItem({ children, href, icon: Icon, badge, collapsed }: NavItemProps)
 export default function AppSidebar() {
   const navigate = useNavigate();
   const { signOut } = useAuth();
+  const { creditBalance, loadingCredits, initiateCheckout } = usePayment();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [collapsed, setCollapsed] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -204,6 +208,17 @@ export default function AppSidebar() {
     }
   };
 
+  const handleBuyCredits = async () => {
+    try {
+      setIsLoading(true);
+      await initiateCheckout('bundle', '');
+    } catch (error) {
+      console.error('Failed to initiate checkout:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className={cn(
       "flex h-full flex-col border-r border-blue-900/50 bg-[#0A1A2C] relative transition-all duration-300",
@@ -228,6 +243,7 @@ export default function AppSidebar() {
           )}
         </button>
       </div>
+      
       <nav className="flex-1 overflow-y-auto px-3 py-6 pb-24">
         <div className="space-y-1">
           {navigation.map((item) => (
@@ -285,7 +301,63 @@ export default function AppSidebar() {
           </div>
         </div>
       </nav>
-      <div className="absolute bottom-0 left-0 right-0 p-4 bg-[#0A1A2C] border-t border-blue-900/50">
+      
+      {/* Credits Module */}
+      <div className={cn(
+        "px-4 py-4 border-t border-blue-900/50",
+        collapsed ? "flex justify-center" : ""
+      )}>
+        <div className={cn(
+          "rounded-lg bg-blue-900/30 p-3 w-full",
+          collapsed ? "w-12 h-12 flex items-center justify-center" : ""
+        )}>
+          {collapsed ? (
+            <div className="relative">
+              <CreditCard className="h-5 w-5 text-blue-400" />
+              {creditBalance > 0 && (
+                <div className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-green-500 text-white text-xs flex items-center justify-center">
+                  {creditBalance > 9 ? '9+' : creditBalance}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center">
+                  <CreditCard className="h-4 w-4 text-blue-400 mr-2" />
+                  <h3 className="text-sm font-medium text-blue-200">Available Credits</h3>
+                </div>
+                <button 
+                  onClick={handleBuyCredits}
+                  disabled={isLoading}
+                  className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded flex items-center"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                      <span>Loading...</span>
+                    </>
+                  ) : (
+                    <span>Buy+</span>
+                  )}
+                </button>
+              </div>
+              <div className="text-xl font-bold text-blue-100 flex items-center">
+                {loadingCredits ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-blue-300 mr-2" />
+                ) : (
+                  creditBalance
+                )}
+                <span className="text-xs ml-1 text-blue-300 font-normal">
+                  {creditBalance === 1 ? 'credit' : 'credits'}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="p-4 border-t border-blue-900/50">
         <button
           onClick={handleSignOut}
           disabled={isSigningOut}
